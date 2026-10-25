@@ -158,12 +158,16 @@ configure_kernel() {
     # root, times out logins with setitimer, and runs an interactive session
     # on a pty (devpts, which init mounts on /dev/pts). glibc locks utmp
     # before recording a login there (as SQLite, for one, locks its files).
-    log "Enabling uid/gid syscalls, interval timers, ptys and file locks for sshd"
+    # The pre-auth process (sshd-auth) sandboxes itself with a seccomp-bpf
+    # filter and drops the connection if the kernel can't install one.
+    log "Enabling uid/gid syscalls, interval timers, ptys, file locks and seccomp for sshd"
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
         --enable MULTIUSER \
         --enable POSIX_TIMERS \
         --enable UNIX98_PTYS \
-        --enable FILE_LOCKING
+        --enable FILE_LOCKING \
+        --enable SECCOMP \
+        --enable SECCOMP_FILTER
 
     log "Embedding init as an uncompressed built-in initramfs"
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \

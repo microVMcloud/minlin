@@ -104,6 +104,7 @@ The host key's private half is in `linux-src/rootfs/` and
 | `POSIX_TIMERS` | `setitimer`, for the login grace timeout; without it every connection fails with `login grace time setitimer failed` |
 | `UNIX98_PTYS` | ptys for interactive sessions; init mounts devpts on `/dev/pts` |
 | `FILE_LOCKING` | glibc locks utmp before recording a login; without it logouts log `logout() returned an error` |
+| `SECCOMP`, `SECCOMP_FILTER` | the pre-auth process sandboxes itself with seccomp-bpf; without them every connection is closed with `ssh_sandbox_child: prctl(PR_SET_SECCOMP): Invalid argument` |
 
 Together these cost about 70KB of free RAM at boot.
 
