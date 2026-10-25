@@ -19,7 +19,7 @@ This project started based on this [blog post](https://nick.zoic.org/art/boot-na
 
     ./build-linux.sh                 # sys/bzImage + sys/vmlinux, init built in
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
-                                     # (or: python / top / bash / sshd)
+                                     # (or: python / top / bash / sshd / tailscale)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
@@ -76,8 +76,9 @@ console bash's controlling tty; that gives job control and a working Ctrl-C.
 `apps/sshd` runs the host's OpenSSH server (with the client too) and logs to
 the console, with `bash` and the commands from `apps/bash` as root's login
 shell. Root logs in with a key: `SSH_AUTHORIZED_KEYS` names the public key
-file to put in `/root/.ssh/authorized_keys`. The ed25519 host key is
-generated on the first build and kept in the work directory
+file (a single `.pub` or a whole `authorized_keys` file) to put in
+`/root/.ssh/authorized_keys`, and the build stops if it isn't set. The ed25519
+host key is generated on the first build and kept in the work directory
 (`linux-src/ssh_host_ed25519_key`), so it survives rebuilding the disk:
 
     SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh sshd
