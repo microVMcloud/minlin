@@ -16,7 +16,21 @@ require ssh-keygen openssh-client
     echo "  SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh sshd" >&2
     exit 1
 }
-[ -f "$SSH_AUTHORIZED_KEYS" ] || { echo "No such file: $SSH_AUTHORIZED_KEYS" >&2; exit 1; }
+if [ ! -f "$SSH_AUTHORIZED_KEYS" ]; then
+    echo "No such file: $SSH_AUTHORIZED_KEYS" >&2
+    # A .pub whose private key is there can be regenerated from it;
+    # otherwise make a new key pair.
+    private_key="${SSH_AUTHORIZED_KEYS%.pub}"
+    if [ "$private_key" != "$SSH_AUTHORIZED_KEYS" ] && [ -f "$private_key" ]; then
+        echo "Recreate it from the private key with:" >&2
+        echo "  ssh-keygen -y -f $private_key > $SSH_AUTHORIZED_KEYS" >&2
+    else
+        echo "Create a key pair with:" >&2
+        echo "  ssh-keygen -t ed25519" >&2
+        echo "then build with SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub" >&2
+    fi
+    exit 1
+fi
 
 # shellcheck source=../bash/install.sh
 source "$SCRIPT_DIR/apps/bash/install.sh"
