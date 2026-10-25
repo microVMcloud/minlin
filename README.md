@@ -15,6 +15,8 @@ A tiny x86-64 Linux kernel (tinyconfig plus virtio-mmio) with a custom `init.c` 
 
 This project started based on this [blog post](https://nick.zoic.org/art/boot-naked-linux/) and is very similar to other Linux "Unikernel" projects.
 
+minlin is the default Linux kernel used at [microVM Cloud](https://microvmcloud.com).
+
 ## Build and boot
 
     ./build-linux.sh                 # sys/bzImage + sys/vmlinux, init built in
