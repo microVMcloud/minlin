@@ -32,9 +32,11 @@ check_deps() {
     for tool in curl tar xz make gcc bc flex bison qemu-system-x86_64; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
+    # objtool needs libelf headers, which are a library, not a tool.
+    echo "#include <gelf.h>" | gcc -E - >/dev/null 2>&1 || missing+=("libelf-dev")
     if [ "${#missing[@]}" -gt 0 ]; then
-        echo "Missing required tools: ${missing[*]}" >&2
-        echo "On Debian/Ubuntu: sudo apt install curl xz-utils build-essential bc flex bison qemu-system-x86" >&2
+        echo "Missing requirements: ${missing[*]}" >&2
+        echo "On Debian/Ubuntu: sudo apt install curl xz-utils build-essential bc flex bison qemu-system-x86 libelf-dev" >&2
         exit 1
     fi
 }
