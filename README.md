@@ -21,7 +21,8 @@ minlin is the default Linux kernel used at [microVM Cloud](https://microvmcloud.
 
     ./build-linux.sh                 # sys/bzImage + sys/vmlinux, init built in
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
-                                     # (or: python / top / bash / sshd / tailscale)
+                                     # (or: python / top / bash / sshd /
+                                     #  dropbear / tailscale)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
@@ -90,6 +91,19 @@ To shut it down, run `kill $(cat /run/sshd.pid)` in a session and log out:
 init reboots once the last session ends. Killing the VM instead can lose
 recent writes that weren't synced to the disk yet. See
 [apps/sshd/README.md](apps/sshd/README.md) for the details.
+
+`apps/dropbear` is the same, with the host's Dropbear SSH server (and its
+`dbclient`) in place of OpenSSH: a single process per connection, no
+privilege separation user and a bit more free memory. It takes
+`SSH_AUTHORIZED_KEYS` the same way, keeps its own host key in
+`linux-src/dropbear_ed25519_host_key`, and uses OpenSSH's `sftp-server` for
+`scp` and `sftp` if the host has it:
+
+    SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh dropbear
+    SSHFWD=2222 ./boot-qemu.sh       # then: ssh -p 2222 root@localhost
+
+Shut it down with `kill $(cat /var/run/dropbear.pid)` and log out. See
+[apps/dropbear/README.md](apps/dropbear/README.md) for the details.
 
 `apps/tailscale` runs the host's `tailscaled` with kernel-mode networking (a
 `tailscale0` TUN device and policy routing; IPv4 only), using 1.1.1.1 and
