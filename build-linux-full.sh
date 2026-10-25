@@ -29,12 +29,12 @@ log() { printf '\n>>> %s\n' "$*"; }
 
 check_deps() {
     local missing=()
-    for tool in curl tar xz make gcc bc flex bison qemu-system-x86_64; do
+    for tool in curl tar xz make gcc bc flex bison qemu-system-x86_64 libelf-dev; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
     if [ "${#missing[@]}" -gt 0 ]; then
         echo "Missing required tools: ${missing[*]}" >&2
-        echo "On Debian/Ubuntu: sudo apt install curl xz-utils build-essential bc flex bison qemu-system-x86" >&2
+        echo "On Debian/Ubuntu: sudo apt install curl xz-utils build-essential bc flex bison qemu-system-x86 libelf-dev" >&2
         exit 1
     fi
 }
