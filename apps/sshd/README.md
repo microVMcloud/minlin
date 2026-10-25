@@ -82,6 +82,7 @@ about 14MB available.
 | `/etc/ssh/sshd_config` | key-only root login, no PAM, no DNS lookups |
 | `/etc/ssh/ssh_host_ed25519_key` | the host key (see [Host key](#host-key)) |
 | `/root/.ssh/authorized_keys` | from `SSH_AUTHORIZED_KEYS` |
+| `/etc/resolv.conf` | DNS via 1.1.1.1 and 8.8.8.8, for `ping`, `ssh` and the like by name |
 | `/etc/passwd`, `/etc/group` | `root`, and the `sshd` privilege separation user |
 | `/run/sshd/` | empty directory that the pre-auth process is chrooted into |
 | `/var/log/lastlog`, `/var/run/utmp` | login records sshd writes |
