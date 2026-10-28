@@ -21,7 +21,7 @@ WORKDIR="${1:-$PWD/linux-src}"
 KERNEL_DIR="$WORKDIR/linux-full"
 SYS_DIR="$SCRIPT_DIR/sys"
 JOBS="$(nproc)"
-KERNEL_VERSION="7.2.11" # 6.18 also tested as it is LTS
+KERNEL_VERSION="7.2.13" # 6.18.59 also tested as it is LTS
 KERNEL_TARBALL_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz"
 KERNEL_TARBALL="$SCRIPT_DIR/linux-${KERNEL_VERSION}.tar.xz"
 
