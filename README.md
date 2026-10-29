@@ -34,7 +34,7 @@ The kernel doesn't depend on the app, so switching apps only needs `build-disk.s
 ## Boot sequence
 
 1. The kernel runs `/init` from the built-in initramfs.
-2. init configures `eth0`, and the hostname if given, from the `ip=` kernel parameter.
+2. init brings up the loopback interface (`lo`, 127.0.0.1), then configures `eth0`, and the hostname if given, from the `ip=` kernel parameter.
 3. init mounts `/dev/vda` (ext4), moves it over `/` and chroots into it, then mounts `/dev`, `/dev/pts`, `/proc` and `/tmp` there.
 4. init applies `/etc/sysctl.conf` if the disk has one (`key = value` lines, as for `sysctl -p`).
 5. init runs the programs listed in `/etc/init.conf`, reaps children, and reboots (ending the VM) once nothing is left running.

@@ -15,13 +15,14 @@ On the host:
   `~/.local/bin`). The build uses the `lightpanda` on the `PATH`, or the
   binary `LIGHTPANDA=` names. The VM gets whatever version that is; this app
   was tested with 1.1.0-nightly.11275.
-- lighttpd (with its `mod_proxy`), busybox (busybox-static), `openssl` to
+- lighttpd (with its `mod_proxy`), `openssl` to
   generate the token, `env` (coreutils) and the CA certificates in
   `/etc/ssl/certs` (ca-certificates), plus what minlin itself needs (see the
   top-level README).
 - A kernel from the current `build-linux.sh`, which enables `madvise` (see
-  [Kernel support](#kernel-support)). An older `sys/bzImage` makes lightpanda
-  abort at startup.
+  [Kernel support](#kernel-support)) and whose init brings up the loopback
+  interface. With an older `sys/bzImage` lightpanda aborts at startup, or
+  can't listen on 127.0.0.1.
 
 ## Build and boot
 
@@ -141,7 +142,7 @@ minlin-browser` and add it again with the new token.
 |---------|-------|
 | 403 with an HTML "403 Forbidden" page | lighttpd: the `Authorization` header is missing or the token is wrong. Compare it with `linux-src/lightpanda_mcp_token` from the build that made the uploaded disk |
 | 403 `Host not allowed, connect to the MCP endpoint by IP address or localhost` | lightpanda: the request reached it without going through lighttpd, as with a disk from before lighttpd was added. Rebuild and upload the disk |
-| 503 from lighttpd | lightpanda isn't listening on 127.0.0.1:9222. On the console: `AddressNotAvailable` means `lo` didn't come up (check the busybox `wait` line in `init.conf`); `Check failed: 0 == ret.` means the kernel lacks `madvise` (see [Kernel support](#kernel-support)) |
+| 503 from lighttpd | lightpanda isn't listening on 127.0.0.1:9222. On the console: `AddressNotAvailable` means `lo` is down: the kernel's init is from before it brought `lo` up, so rebuild it with `build-linux.sh`; `Check failed: 0 == ret.` means the kernel lacks `madvise` (see [Kernel support](#kernel-support)) |
 | 504 from nginx, or 500 from lighttpd, on heavy pages only | too little memory: the console shows `page allocation failure ... GFP_ATOMIC` and pages crawl. Give the VM 128MiB or more |
 | `claude mcp list` says connected, but Claude has no `minlin-browser` tools | the session started before the server was added. Restart Claude Code or reconnect from `/mcp` |
 | 404 after the client has been idle | its session timed out after 10 minutes; MCP clients start a new one |
@@ -158,9 +159,9 @@ public name, it refuses every request with "Host not allowed". So:
                checks the token,
                sets Host: 127.0.0.1
 
-lightpanda listens only on 127.0.0.1, so lighttpd is the only way in. init
-only configures `eth0`, so a `wait` line in `init.conf` brings up the
-loopback interface with busybox first. lightpanda 1.1.0 refuses a bare
+lightpanda listens only on 127.0.0.1, so lighttpd is the only way in; the
+two talk over the loopback interface, which init brings up at boot.
+lightpanda 1.1.0 refuses a bare
 `Host: localhost` (without a port), which is why lighttpd sends `127.0.0.1`.
 
 ## Security
@@ -212,7 +213,6 @@ JavaScript sites, need more still.
 | `/etc/lighttpd/lighttpd.conf` | the token check and the proxy to lightpanda |
 | `/etc/lighttpd/token.conf` | the token (see [The token](#the-token)), mode 600 |
 | `/var/empty` | lighttpd's document root, which it requires but never serves from |
-| `/usr/bin/busybox` | brings up `lo` (static, ~2MB) |
 | `/etc/ssl/certs/` | CA certificates. Lightpanda reads the individual hashed files here, not the bundle |
 | `/etc/resolv.conf` | DNS via 1.1.1.1 and 8.8.8.8 |
 | `/.local/share/lightpanda/` | created by lightpanda at startup (init sets `HOME=/`) |

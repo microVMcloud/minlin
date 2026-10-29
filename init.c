@@ -39,6 +39,22 @@ static int set_addr(int sock, const char *dev, unsigned long req,
 	return 0;
 }
 
+static int set_up(int sock, const char *dev) {
+	struct ifreq ifr;
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+	if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
+		perror("ioctl SIOCGIFFLAGS");
+		return -1;
+	}
+	ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+	if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0) {
+		perror("ioctl SIOCSIFFLAGS");
+		return -1;
+	}
+	return 0;
+}
+
 static int add_default_route(int sock, const char *dev, const char *gw) {
 	struct rtentry rt;
 	memset(&rt, 0, sizeof(rt));
@@ -58,6 +74,22 @@ static int add_default_route(int sock, const char *dev, const char *gw) {
 		return -1;
 	}
 	return 0;
+}
+
+/*
+ * Bring up the loopback interface, which the kernel leaves down. Bringing it
+ * up gives it 127.0.0.1/8, so programs can talk to each other over 127.0.0.1
+ * (and bind it) whether or not ip= configures eth0.
+ */
+static void setup_loopback(void) {
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		perror("socket");
+		return;
+	}
+	if (set_up(sock, "lo") < 0)
+		fprintf(stderr, "net: lo not up\n");
+	close(sock);
 }
 
 /*
@@ -109,18 +141,8 @@ static void setup_network(void) {
 	if (mask && set_addr(sock, dev, SIOCSIFNETMASK, mask, "ioctl SIOCSIFNETMASK") < 0)
 		goto out;
 
-	struct ifreq ifr;
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
-	if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
-		perror("ioctl SIOCGIFFLAGS");
+	if (set_up(sock, dev) < 0)
 		goto out;
-	}
-	ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-	if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0) {
-		perror("ioctl SIOCSIFFLAGS");
-		goto out;
-	}
 	fprintf(stderr, "net: %s up with %s, netmask %s", dev, client,
 		mask ? mask : "(classful default)");
 
@@ -451,6 +473,7 @@ int main(void) {
 		fprintf(stderr, "mem: %lu KiB free\n",
 			(unsigned long)(info.freeram * info.mem_unit) / 1024);
 
+	setup_loopback();
 	setup_network();
 
 	if (mount_root() == 0 && read_conf() == 0) {

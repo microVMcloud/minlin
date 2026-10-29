@@ -18,16 +18,12 @@ LIGHTPANDA="${LIGHTPANDA:-$(command -v lightpanda || true)}"
 }
 require lighttpd
 require openssl
-require busybox busybox-static
 
-# Debian/Ubuntu's busybox-static needs no shared libraries. Installed at a
-# fixed path for init.conf, like lightpanda below.
-mkdir -p "$ROOTFS/usr/bin"
-cp -L "$(command -v busybox)" "$ROOTFS/usr/bin/busybox"
 # init.conf lines can't set environment variables, so go through env.
 install_binary "$(command -v env)"
 # Install at a fixed path so init.conf doesn't depend on where the host keeps
 # it, then the libraries the host's copy needs.
+mkdir -p "$ROOTFS/usr/bin"
 cp -L "$LIGHTPANDA" "$ROOTFS/usr/bin/lightpanda"
 ldd "$LIGHTPANDA" | { grep -o '/[^ ]*' || true; } | while read -r lib; do
     install_binary "$lib"
