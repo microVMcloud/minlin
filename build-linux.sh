@@ -171,6 +171,12 @@ configure_kernel() {
         --enable SECCOMP \
         --enable SECCOMP_FILTER
 
+    # V8 (in lightpanda) hands memory back with madvise and treats a failed
+    # call as fatal ("Check failed: 0 == ret."), so it aborts at startup
+    # without it.
+    "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
+        --enable ADVISE_SYSCALLS
+
     log "Embedding init as an uncompressed built-in initramfs"
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
         --enable BLK_DEV_INITRD \

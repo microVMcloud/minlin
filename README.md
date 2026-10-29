@@ -22,7 +22,7 @@ minlin is the default Linux kernel used at [microVM Cloud](https://microvmcloud.
     ./build-linux.sh                 # sys/bzImage + sys/vmlinux, init built in
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
-                                     #  dropbear / tailscale)
+                                     #  dropbear / tailscale / lightpanda)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
@@ -118,6 +118,19 @@ With `TS_EXIT_NODE=1` it also advertises itself as an exit node (approve it in
 the admin console), turning on IPv4 forwarding and NAT with nftables. Exit
 traffic is IPv4 only, so tailscaled warns that IP forwarding is disabled: that
 is IPv6 forwarding, which the guest doesn't have.
+
+`apps/lightpanda` runs [Lightpanda](https://lightpanda.io), a headless
+browser with a JavaScript engine (V8), as an MCP server on port 80, so an AI
+agent can browse the web from inside a throwaway VM. Lightpanda isn't
+packaged: install it from its site (the build looks for `lightpanda` on the
+`PATH`, or set `LIGHTPANDA=/path/to/binary`). It is a single ~77MB binary
+needing only libc, and it starts with telemetry turned off. A 64MB guest is
+enough to load and render Wikipedia. See
+[apps/lightpanda/README.md](apps/lightpanda/README.md) for the details:
+
+    ./build-disk.sh lightpanda
+    MEM=64 HOSTFWD=8080 ./boot-qemu.sh
+    claude mcp add --transport http minlin-browser http://localhost:8080/mcp
 
 To add another app, create `apps/<name>/` with an `etc/init.conf` and an
 `install.sh` that installs whatever it needs. The kernel is still very small
