@@ -124,13 +124,17 @@ browser with a JavaScript engine (V8), as an MCP server on port 80, so an AI
 agent can browse the web from inside a throwaway VM. Lightpanda isn't
 packaged: install it from its site (the build looks for `lightpanda` on the
 `PATH`, or set `LIGHTPANDA=/path/to/binary`). It is a single ~77MB binary
-needing only libc, and it starts with telemetry turned off. A 64MB guest is
-enough to load and render Wikipedia. See
+needing only libc, and it starts with telemetry turned off. lighttpd sits in
+front of it and only lets in clients with a bearer token, which the build
+generates and keeps in `linux-src/lightpanda_mcp_token` (or set
+`MCP_TOKEN=`). Give it 128MB: heavy pages leave a 64MB guest short of
+network buffers. See
 [apps/lightpanda/README.md](apps/lightpanda/README.md) for the details:
 
     ./build-disk.sh lightpanda
-    MEM=64 HOSTFWD=8080 ./boot-qemu.sh
-    claude mcp add --transport http minlin-browser http://localhost:8080/mcp
+    MEM=128 HOSTFWD=8080 ./boot-qemu.sh
+    claude mcp add --transport http minlin-browser http://localhost:8080/mcp \
+        --header "Authorization: Bearer $(cat linux-src/lightpanda_mcp_token)"
 
 To add another app, create `apps/<name>/` with an `etc/init.conf` and an
 `install.sh` that installs whatever it needs. The kernel is still very small
