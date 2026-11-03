@@ -20,6 +20,9 @@
 # Guest RAM is 32MB unless MEM= says otherwise (in MB). The guest's hostname
 # is the kernel's default (minlin) unless GUEST_NAME= gives one.
 #
+# SWAP= names a file made with mkswap (e.g. fallocate -l 256M sys/swapimage &&
+# mkswap sys/swapimage) to attach as a second disk, which init swaps onto.
+#
 # Kernel messages are hidden (loglevel=0) unless --debug is given.
 
 set -euo pipefail
@@ -47,6 +50,7 @@ TAP="${TAP:-fctap0}"
 GUEST_IP="${GUEST_IP:-}"
 MEM="${MEM:-32}"
 GUEST_NAME="${GUEST_NAME:-}"
+SWAP="${SWAP:-}"
 
 if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
     echo "Firecracker needs read/write access to /dev/kvm" >&2
@@ -110,6 +114,12 @@ else
     as_root ip link set "$TAP" master "$BRIDGE" up
 fi
 
+swap_drive=
+if [ -n "$SWAP" ]; then
+    [ -f "$SWAP" ] || { echo "SWAP file $SWAP not found" >&2; exit 1; }
+    swap_drive=$(printf ', {\n        "drive_id": "swap0",\n        "path_on_host": "%s",\n        "is_root_device": false,\n        "is_read_only": false\n    }' "$(realpath "$SWAP")")
+fi
+
 config="$(mktemp --tmpdir firecracker-config.XXXXXX.json)"
 
 # Firecracker's i8042 has only a keyboard port (enough for SendCtrlAltDel);
@@ -127,7 +137,7 @@ cat > "$config" <<EOF
         "path_on_host": "$SYS_DIR/diskimage",
         "is_root_device": false,
         "is_read_only": false
-    }],
+    }$swap_drive],
     "network-interfaces": [{
         "iface_id": "eth0",
         "guest_mac": "10:11:12:00:1A:F4",

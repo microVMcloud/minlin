@@ -10,6 +10,7 @@
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
+#include <sys/swap.h>
 #include <sys/wait.h>
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>
@@ -205,6 +206,41 @@ static int mount_root(void) {
 	if (mount("tmpfs", "/tmp", "tmpfs", 0, NULL) < 0)
 		perror("mount /tmp");
 	return 0;
+}
+
+/*
+ * Turn on swap on every block device, whole disk or partition, that mkswap
+ * has formatted: its first page ends in the "SWAPSPACE2" signature. Runs
+ * after mount_root(), which provides /proc/partitions and the /dev nodes.
+ */
+static void setup_swap(void) {
+	FILE *f = fopen("/proc/partitions", "r");
+	if (!f) {
+		perror("open /proc/partitions");
+		return;
+	}
+	long pagesize = sysconf(_SC_PAGESIZE);
+	char *page = malloc(pagesize);
+	char line[128], name[64], dev[80];
+	while (page && fgets(line, sizeof(line), f)) {
+		/* Lines are "<major> <minor> <#blocks> <name>" after a header. */
+		if (sscanf(line, "%*u %*u %*u %63s", name) != 1)
+			continue;
+		snprintf(dev, sizeof(dev), "/dev/%s", name);
+		int fd = open(dev, O_RDONLY);
+		if (fd < 0)
+			continue;
+		ssize_t n = pread(fd, page, pagesize, 0);
+		close(fd);
+		if (n != pagesize || memcmp(page + pagesize - 10, "SWAPSPACE2", 10))
+			continue;
+		if (swapon(dev, 0) < 0)
+			fprintf(stderr, "swapon %s: %s\n", dev, strerror(errno));
+		else
+			fprintf(stderr, "swap: enabled %s\n", dev);
+	}
+	free(page);
+	fclose(f);
 }
 
 /*
@@ -477,6 +513,7 @@ int main(void) {
 	setup_network();
 
 	if (mount_root() == 0 && read_conf() == 0) {
+		setup_swap();
 		apply_sysctls();
 		setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", 1);
 		setenv("HOME", "/", 1);

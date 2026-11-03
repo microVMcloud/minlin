@@ -6,12 +6,14 @@ MINimal LINux
 
 A tiny x86-64 Linux kernel (tinyconfig plus virtio-mmio) with a custom `init.c` built into its initramfs, booting under QEMU microvm or Firecracker and running ordinary, dynamically linked Linux programs from an ext4 disk.
 
-| Linux 7.2.11 (booted with 64 MiB RAM)| minlin | Full |
+| Linux 7.2.15 (booted with 64 MiB RAM) | minlin | Full |
 | -------- | -------- | -------- |
-| bzImage (bytes) | 1,717,248 | 15,254,528 |
-| vmlinux (bytes) | 12,985,480 | 53,888,144 |
-| Free Memory (KiB) | 55,004 | 15,448 |
-| Startup time (seconds) | 0.031219 | 0.151352 |
+| bzImage (bytes) | 1,745,920 | 15,270,912 |
+| vmlinux (bytes) | 13,012,472 | 53,905,608 |
+| Free Memory (KiB) | 49,384 | 10,704 |
+| Startup time (seconds) | 0.010732 | 2.911762 |
+
+Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: free memory is `MemFree` from `/proc/meminfo` as the first program runs, and startup time is the kernel timestamp of "Run /init as init process". Most of the full kernel's startup time is spent probing for an RTC, which microvm doesn't have.
 
 This project started based on this [blog post](https://nick.zoic.org/art/boot-naked-linux/) and is very similar to other Linux "Unikernel" projects.
 
@@ -36,8 +38,18 @@ The kernel doesn't depend on the app, so switching apps only needs `build-disk.s
 1. The kernel runs `/init` from the built-in initramfs.
 2. init brings up the loopback interface (`lo`, 127.0.0.1), then configures `eth0`, and the hostname if given, from the `ip=` kernel parameter.
 3. init mounts `/dev/vda` (ext4), moves it over `/` and chroots into it, then mounts `/dev`, `/dev/pts`, `/proc` and `/tmp` there.
-4. init applies `/etc/sysctl.conf` if the disk has one (`key = value` lines, as for `sysctl -p`).
-5. init runs the programs listed in `/etc/init.conf`, reaps children, and reboots (ending the VM) once nothing is left running.
+4. init turns on swap on every block device (whole disk or partition) that has a swap signature from `mkswap`.
+5. init applies `/etc/sysctl.conf` if the disk has one (`key = value` lines, as for `sysctl -p`).
+6. init runs the programs listed in `/etc/init.conf`, reaps children, and reboots (ending the VM) once nothing is left running.
+
+## Swap
+
+Both boot scripts take `SWAP=<file>` to attach a swap image as a second disk (`/dev/vdb`), which init finds and swaps onto:
+
+    fallocate -l 256M sys/swapimage && chmod 600 sys/swapimage && mkswap sys/swapimage
+    SWAP=sys/swapimage ./boot-qemu.sh
+
+The root disk must stay a whole-disk ext4 image at `/dev/vda`, so swap goes on its own disk. The minlin kernel has no partition-table parsers, so it only sees swap on a whole disk; the full kernel also finds swap partitions.
 
 ## Apps
 

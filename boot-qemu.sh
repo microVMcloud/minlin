@@ -18,6 +18,9 @@
 # Guest RAM is 32MB unless MEM= says otherwise (in MB). The guest's hostname
 # is the kernel's default (minlin) unless GUEST_NAME= gives one.
 #
+# SWAP= names a file made with mkswap (e.g. fallocate -l 256M sys/swapimage &&
+# mkswap sys/swapimage) to attach as a second disk, which init swaps onto.
+#
 # Kernel messages are hidden (loglevel=0) unless --debug is given.
 
 set -euo pipefail
@@ -45,6 +48,7 @@ HOSTFWD="${HOSTFWD:-}"
 SSHFWD="${SSHFWD:-}"
 MEM="${MEM:-32}"
 GUEST_NAME="${GUEST_NAME:-}"
+SWAP="${SWAP:-}"
 
 kvm_flag=()
 [ -w /dev/kvm ] && kvm_flag=(-enable-kvm -cpu host)
@@ -59,6 +63,13 @@ else
     netdev="socket,id=testnet1,listen=:1234"
 fi
 
+swap_drive=()
+if [ -n "$SWAP" ]; then
+    [ -f "$SWAP" ] || { echo "SWAP file $SWAP not found" >&2; exit 1; }
+    swap_drive=(-drive id=swap0,file="$SWAP",if=none,format=raw
+                -device virtio-blk-device,drive=swap0)
+fi
+
 qemu-system-x86_64 "${kvm_flag[@]}" -m "${MEM}M" -nographic -nodefaults -no-reboot \
     -M microvm,acpi=off,pcie=off,pic=off,rtc=off \
     -serial stdio \
@@ -66,6 +77,7 @@ qemu-system-x86_64 "${kvm_flag[@]}" -m "${MEM}M" -nographic -nodefaults -no-rebo
     -append "console=ttyS0 $loglevel reboot=t ip=$ip" \
     -drive id=disk0,file="$SYS_DIR/diskimage",if=none,format=raw \
     -device virtio-blk-device,drive=disk0 \
+    "${swap_drive[@]}" \
     -netdev "$netdev" \
     -device virtio-net-device,netdev=testnet1,mac=10:11:12:00:1A:F4 \
     -monitor telnet:localhost:8086,server,nowait

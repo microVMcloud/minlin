@@ -107,6 +107,7 @@ configure_kernel() {
         --enable PARAVIRT \
         --enable KVM_GUEST \
         --enable BLOCK \
+        --enable SWAP \
         --enable VIRTIO_MENU \
         --enable VIRTIO \
         --enable VIRTIO_MMIO \
@@ -215,7 +216,6 @@ configure_kernel() {
         --disable EARLY_PRINTK \
         --enable PROCESSOR_SELECT \
         --disable CPU_SUP_HYGON --disable CPU_SUP_CENTAUR --disable CPU_SUP_ZHAOXIN \
-        --disable SWAP \
         --disable BLOCK_LEGACY_AUTOLOAD \
         --disable MQ_IOSCHED_DEADLINE --disable MQ_IOSCHED_KYBER \
         --enable PARTITION_ADVANCED --disable MSDOS_PARTITION --disable EFI_PARTITION \
