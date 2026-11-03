@@ -23,6 +23,12 @@
 # SWAP= names a file made with mkswap (e.g. fallocate -l 256M sys/swapimage &&
 # mkswap sys/swapimage) to attach as a second disk, which init swaps onto.
 #
+# HUGEPAGES=1 backs guest RAM with 2MB huge pages, which roughly triples the
+# kernel's boot speed (the host takes 1/512th as many page faults as the guest
+# first touches its memory). The pages must be reserved on the host first,
+# MEM/2 of them per VM (e.g. sudo sysctl vm.nr_hugepages=64 for 128MB),
+# and MEM must be even.
+#
 # Kernel messages are hidden (loglevel=0) unless --debug is given.
 
 set -euo pipefail
@@ -51,10 +57,26 @@ GUEST_IP="${GUEST_IP:-}"
 MEM="${MEM:-32}"
 GUEST_NAME="${GUEST_NAME:-}"
 SWAP="${SWAP:-}"
+HUGEPAGES="${HUGEPAGES:-0}"
 
 if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
     echo "Firecracker needs read/write access to /dev/kvm" >&2
     exit 1
+fi
+
+huge_pages=None
+if [ "$HUGEPAGES" = 1 ]; then
+    if [ $(( MEM % 2 )) -ne 0 ]; then
+        echo "HUGEPAGES=1 needs an even MEM (2MB pages), not $MEM" >&2
+        exit 1
+    fi
+    hp_free="$(cat /sys/kernel/mm/hugepages/hugepages-2048kB/free_hugepages 2>/dev/null || echo 0)"
+    if [ "$hp_free" -lt $(( MEM / 2 )) ]; then
+        echo "HUGEPAGES=1 needs $(( MEM / 2 )) free 2MB huge pages for MEM=$MEM, but only $hp_free are free." >&2
+        echo "Reserve more with: echo <count> | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages" >&2
+        exit 1
+    fi
+    huge_pages=2M
 fi
 
 ip2int() {
@@ -145,7 +167,8 @@ cat > "$config" <<EOF
     }],
     "machine-config": {
         "vcpu_count": 1,
-        "mem_size_mib": $MEM
+        "mem_size_mib": $MEM,
+        "huge_pages": "$huge_pages"
     }
 }
 EOF

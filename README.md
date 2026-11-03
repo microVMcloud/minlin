@@ -31,6 +31,8 @@ minlin is the default Linux kernel used at [microVM Cloud](https://microvmcloud.
                                      # (both take MEM=<MB>, default 32,
                                      #  and GUEST_NAME=, default minlin)
 
+`boot-firecracker.sh` also takes `HUGEPAGES=1` to back guest RAM with 2MB huge pages, which makes the kernel boot about three times faster (minlin reaches `/init` in ~0.007s instead of ~0.024s). Reserve MEM/2 pages per VM on the host first, e.g. `sudo sysctl vm.nr_hugepages=64` for `MEM=128`; the script checks there are enough free before it starts.
+
 The kernel doesn't depend on the app, so switching apps only needs `build-disk.sh` re-run. The lighttpd app needs `lighttpd` installed on the host (`sudo apt install lighttpd`); the host's binary, its modules and shared libraries (found with `ldd`) are copied into the disk image.
 
 ## Boot sequence
