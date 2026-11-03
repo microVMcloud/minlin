@@ -80,7 +80,8 @@ console bash's controlling tty; that gives job control and a working Ctrl-C.
 the console, with `bash` and the commands from `apps/bash` as root's login
 shell. Root logs in with a key: `SSH_AUTHORIZED_KEYS` names the public key
 file (a single `.pub` or a whole `authorized_keys` file) to put in
-`/root/.ssh/authorized_keys`, and the build stops if it isn't set. The ed25519
+`/root/.ssh/authorized_keys`. If it isn't set, the disk gets an empty
+`authorized_keys` instead, for a "public" image with no one's keys in it. The ed25519
 host key is generated on the first build and kept in the work directory
 (`linux-src/ssh_host_ed25519_key`), so it survives rebuilding the disk:
 

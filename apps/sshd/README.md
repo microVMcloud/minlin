@@ -28,7 +28,9 @@ Then, from the host:
 
 - `SSH_AUTHORIZED_KEYS` names the file of public keys (an `authorized_keys`
   file or a single `.pub`) that may log in as root. It's copied to
-  `/root/.ssh/authorized_keys`; the build stops if it isn't set.
+  `/root/.ssh/authorized_keys`. If it isn't set, a blank key file is used
+  instead, which gives a "public" image with no one's keys in it (nobody can
+  log in until keys are added).
 - `SSHFWD` switches QEMU to user-mode networking and forwards that host port
   to the guest's port 22. It can be combined with `HOSTFWD` (port 80).
 

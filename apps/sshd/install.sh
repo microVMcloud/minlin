@@ -3,6 +3,9 @@
 #
 # Set SSH_AUTHORIZED_KEYS to a file of public keys (an authorized_keys file
 # or a single .pub) allowed to log in as root; it is copied onto the disk.
+# Without it, a blank key file is used, so nobody can log in until keys are
+# added to /root/.ssh/authorized_keys. That makes a "public" image with no
+# one's keys baked in.
 #
 # The ed25519 host key is generated on the first build and kept in the work
 # directory, so rebuilding the disk doesn't change the VM's host key.
@@ -14,7 +17,9 @@ require ssh-keygen openssh-client
 [ -n "${SSH_AUTHORIZED_KEYS:-}" ] || {
     echo "Set SSH_AUTHORIZED_KEYS to a public key file to log in with, e.g." >&2
     echo "  SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh sshd" >&2
-    exit 1
+    echo "Using a blank authorized_keys: no one can log in until keys are added." >&2
+    SSH_AUTHORIZED_KEYS="$WORKDIR/blank.pub"
+    : > "$SSH_AUTHORIZED_KEYS"
 }
 if [ ! -f "$SSH_AUTHORIZED_KEYS" ]; then
     echo "No such file: $SSH_AUTHORIZED_KEYS" >&2
