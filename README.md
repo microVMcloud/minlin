@@ -24,7 +24,8 @@ minlin is the default Linux kernel used at [microVM Cloud](https://microvmcloud.
     ./build-linux.sh                 # sys/bzImage + sys/vmlinux, init built in
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
-                                     #  dropbear / tailscale / lightpanda)
+                                     #  dropbear / tailscale / lightpanda /
+                                     #  node)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
@@ -76,6 +77,16 @@ space, as HTML at `/` and as JSON at `/metrics.json`. Its standard library is
 copied too, minus the test suite, GUI packages and the static libpython, along
 with the shared libraries its extension modules (ssl, sqlite3, ...) link
 against.
+
+`apps/node` runs `rootfs/app/server.js` with the host's `node`, a small web
+server on port 80. It expects Debian/Ubuntu's `nodejs` package (tested with
+22.22.1): that build keeps some of its JavaScript in `/usr/share/nodejs`,
+loaded at startup, so `install.sh` copies those files too. The disk holds
+127MB, so it is 256MB, and the VM needs `MEM=64`: at the default 32MB it hadn't
+answered after 15 seconds.
+
+    ./build-disk.sh node
+    MEM=64 HOSTFWD=8080 ./boot-qemu.sh
 
 `apps/top` runs the host's `top` (procps) on the serial console, along with
 the `linux` terminfo entry it draws with (the kernel starts init with
@@ -151,7 +162,7 @@ network buffers. See
     claude mcp add --transport http minlin-browser http://localhost:8080/mcp \
         --header "Authorization: Bearer $(cat linux-src/lightpanda_mcp_token)"
 
-To add another app, create `apps/<name>/` with an `etc/init.conf` and an
-`install.sh` that installs whatever it needs. The kernel is still very small
-(for example no `CONFIG_SHMEM` or `CONFIG_IPV6`), so some
-programs will need more kernel options enabled in `build-linux.sh`.
+To add another app, create `apps/<name>/` with a `rootfs/etc/init.conf` and an
+`install.sh` that installs whatever it needs (see [AGENTS.md](AGENTS.md)). The
+kernel is still very small (for example no `CONFIG_SHMEM` or `CONFIG_IPV6`), so
+some programs will need more kernel options enabled in `build-linux.sh`.
