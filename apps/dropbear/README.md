@@ -15,7 +15,7 @@ On the host:
   VM gets whatever version the host has.
 - Optionally `/usr/lib/sftp-server` (openssh-sftp-server), for `sftp` and
   `scp`. Without it the build warns and those don't work.
-- bash, util-linux and busybox, for the login shell (see `apps/bash`), plus what
+- bash, util-linux, busybox and curl, for the login shell (see `apps/bash`), plus what
   minlin itself needs (see the top-level README).
 - A public key to log in with. Password logins are off.
 
@@ -86,7 +86,8 @@ available, a little more than with OpenSSH.
 | `/etc/dropbear/dropbear_ed25519_host_key` | the host key (see [Host key](#host-key)) |
 | `/root/.ssh/authorized_keys` | from `SSH_AUTHORIZED_KEYS` |
 | `/etc/shells` | dropbear only lets in users whose shell is listed here |
-| `/etc/resolv.conf` | DNS via 1.1.1.1 and 8.8.8.8, for `ping`, `dbclient` and the like by name |
+| `/etc/resolv.conf` | DNS via 1.1.1.1 and 8.8.8.8, for `ping`, `dbclient`, `curl` and the like by name |
+| `/etc/ssl/certs/ca-certificates.crt` | CA roots for `curl` (from `apps/bash`) |
 | `/etc/passwd`, `/etc/group` | just `root`; dropbear has no privilege separation user |
 | `/var/run/utmp`, `/var/log/wtmp`, `/var/log/lastlog` | login records dropbear writes |
 | `/usr/share/terminfo/...` | entries for common client `TERM`s (xterm, screen, tmux, ...) |

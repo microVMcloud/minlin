@@ -13,6 +13,7 @@ On the host:
 
 - bash, and util-linux for `setsid`.
 - busybox (`busybox-static`).
+- curl, and `ca-certificates` for its CA roots.
 - What minlin itself needs (see the top-level README).
 
 ## Build and boot
@@ -45,6 +46,12 @@ the host's busybox has: `ls`, `cat`, `cp`, `grep`, `sed`, `awk`, `find`,
 `tar`, `ps`, `top`, `free`, `df`, `vi`, `less`, `stty`, `ip`, `wget`, ...
 Debian/Ubuntu's `busybox-static` (about 2MB) needs no shared libraries.
 
+`curl` is the host's, with its shared libraries and the CA bundle for
+`https://`. The guest only has outbound internet under QEMU if the VM boots
+with `HOSTFWD` or `SSHFWD`, even if nothing listens on the forwarded port:
+
+    HOSTFWD=8080 ./boot-qemu.sh
+
 A command already on the disk when the links are made keeps its real
 version: `bash` and util-linux `setsid` (busybox's has no `-w`). For any
 other command you want the host's version of instead, `install_binary` it
@@ -72,9 +79,10 @@ edited. Set the real size with busybox's `stty`, e.g. `stty rows 50 cols 160`.
 
 ## Memory
 
-The disk holds 6.2MB: bash and its libraries, setsid, and busybox. The
-default 32MB of RAM is plenty: with bash at its prompt, `free` reports about
-17MB available.
+The disk holds 26MB: bash and its libraries, setsid, busybox, and curl, whose
+libraries are about 20MB of that. The default 32MB of RAM is plenty: with bash
+at its prompt, `free` reports about 19MB available, and an `https://` fetch
+works.
 
 ## What's on the disk
 
@@ -82,11 +90,14 @@ default 32MB of RAM is plenty: with bash at its prompt, `free` reports about
 |------|---------|
 | `/usr/bin/bash` | the host's bash |
 | `/usr/bin/setsid` | gives bash the console as its controlling terminal |
+| `/usr/bin/curl` | the host's curl |
 | `/usr/bin/busybox` | the everyday commands |
 | `/usr/bin/*` | links to busybox, one per applet |
 | `/etc/init.conf` | starts bash on the console |
 | `/etc/bash.bashrc`, `/etc/profile` | the prompt |
 | `/etc/passwd` | `root`, so the prompt can show a user name |
+| `/etc/resolv.conf` | DNS via 1.1.1.1 and 8.8.8.8, for `curl` and the like by name |
+| `/etc/ssl/certs/ca-certificates.crt` | CA roots for `curl` |
 | `/usr/share/terminfo/l/linux` | the console's terminfo entry |
 | `/lib64/`, `/usr/lib/x86_64-linux-gnu/` | shared libraries the programs need |
 

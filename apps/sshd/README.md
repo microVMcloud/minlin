@@ -2,8 +2,8 @@
 
 This app runs the host's OpenSSH server as the only program in a minlin
 microVM. Root logs in with a key to `bash`, with the everyday commands from
-`apps/bash` (busybox: `ls`, `cat`, `grep`, `sed`, `ps`, `free`, `df`, ...) and the ssh
-client. Interactive sessions get a real pty with job control, and `scp` and
+`apps/bash` (busybox: `ls`, `cat`, `grep`, `sed`, `ps`, `free`, `df`, ..., and
+curl) and the ssh client. Interactive sessions get a real pty with job control, and `scp` and
 `sftp` work.
 
 ## Requirements
@@ -12,8 +12,8 @@ On the host:
 
 - OpenSSH (`sshd` from openssh-server; `ssh` and `ssh-keygen` from
   openssh-client). The VM gets whatever version the host has.
-- bash, util-linux and busybox, for the login shell (see `apps/bash`), plus what
-  minlin itself needs (see the top-level README).
+- bash, util-linux, busybox and curl, for the login shell (see `apps/bash`), plus
+  what minlin itself needs (see the top-level README).
 - A public key to log in with. Password logins are off.
 
 ## Build and boot
@@ -84,7 +84,8 @@ about 14MB available.
 | `/etc/ssh/sshd_config` | key-only root login, no PAM, no DNS lookups |
 | `/etc/ssh/ssh_host_ed25519_key` | the host key (see [Host key](#host-key)) |
 | `/root/.ssh/authorized_keys` | from `SSH_AUTHORIZED_KEYS` |
-| `/etc/resolv.conf` | DNS via 1.1.1.1 and 8.8.8.8, for `ping`, `ssh` and the like by name |
+| `/etc/resolv.conf` | DNS via 1.1.1.1 and 8.8.8.8, for `ping`, `ssh`, `curl` and the like by name |
+| `/etc/ssl/certs/ca-certificates.crt` | CA roots for `curl` (from `apps/bash`) |
 | `/etc/passwd`, `/etc/group` | `root`, and the `sshd` privilege separation user |
 | `/run/sshd/` | empty directory that the pre-auth process is chrooted into |
 | `/var/log/lastlog`, `/var/run/utmp` | login records sshd writes |

@@ -1,13 +1,19 @@
 # Sourced by build-disk.sh: installs the host's bash, setsid (util-linux) to
 # give it the console as its controlling terminal, the terminfo entry for that
-# console, and busybox for the everyday commands to use from it.
+# console, busybox for the everyday commands to use from it, and curl.
 
 require bash
 require setsid util-linux
 require busybox busybox-static
+require curl
 
 install_binary "$(command -v bash)"
 install_binary "$(command -v setsid)"
+install_binary "$(command -v curl)"
+# curl fails every https:// URL without the CA roots.
+ca_bundle=/etc/ssl/certs/ca-certificates.crt
+[ -f "$ca_bundle" ] || { echo "No $ca_bundle (ca-certificates)" >&2; exit 1; }
+cp --parents -L "$ca_bundle" "$ROOTFS"
 # The prompt. Copied here, not just left in rootfs/, so that apps which
 # source this file for their shell (apps/sshd) get it too.
 cp "$SCRIPT_DIR/apps/bash/rootfs/etc/bash.bashrc" "$SCRIPT_DIR/apps/bash/rootfs/etc/profile" "$ROOTFS/etc/"

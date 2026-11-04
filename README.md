@@ -108,9 +108,10 @@ the `linux` terminfo entry it draws with (the kernel starts init with
 `apps/bash` runs an interactive `bash` on the serial console, with a
 `user@host:dir` prompt (set in `/etc/bash.bashrc`) and the host's static
 busybox for the everyday commands (`ls`, `cat`, `grep`, `sed`, `awk`, `ps`,
-`free`, `df`, `vi`, ...), one link per applet. init starts programs with no
-controlling terminal, so it goes through util-linux `setsid -c` to make the
-console bash's controlling tty; that gives job control and a working Ctrl-C.
+`free`, `df`, `vi`, ...), one link per applet, plus the host's `curl`. init
+starts programs with no controlling terminal, so it goes through util-linux
+`setsid -c` to make the console bash's controlling tty; that gives job control
+and a working Ctrl-C.
 `exit` or Ctrl-D ends the VM. See
 [apps/bash/README.md](apps/bash/README.md) for the details.
 
@@ -118,8 +119,8 @@ console bash's controlling tty; that gives job control and a working Ctrl-C.
 
 `apps/sshd` runs the host's OpenSSH server (with the client too) and logs to
 the console, with `bash` and the commands from `apps/bash` as root's login
-shell. Root logs in with a key: `SSH_AUTHORIZED_KEYS` names the public key
-file (a single `.pub` or a whole `authorized_keys` file) to put in
+shell, including `curl`. Root logs in with a key: `SSH_AUTHORIZED_KEYS` names
+the public key file (a single `.pub` or a whole `authorized_keys` file) to put in
 `/root/.ssh/authorized_keys`. If it isn't set, the disk gets an empty
 `authorized_keys` instead, for a "public" image with no one's keys in it. The ed25519
 host key is generated on the first build and kept in the work directory
