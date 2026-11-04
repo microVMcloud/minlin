@@ -82,8 +82,9 @@ against.
 server on port 80. It expects Debian/Ubuntu's `nodejs` package (tested with
 22.22.1): that build keeps some of its JavaScript in `/usr/share/nodejs`,
 loaded at startup, so `install.sh` copies those files too. The disk holds
-127MB, so it is 256MB, and the VM needs `MEM=64`: at the default 32MB it hadn't
-answered after 15 seconds.
+127MB, so it is 256MB. Give the VM `MEM=64`: the first response takes about
+0.5s, against 3.8s at 48MB, and at 40MB or less node hangs without logging an
+error (no response in 45s at 40MB, or in 90s at the default 32MB).
 
     ./build-disk.sh node
     MEM=64 HOSTFWD=8080 ./boot-qemu.sh

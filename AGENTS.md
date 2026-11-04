@@ -125,7 +125,9 @@ Getting there took three iterations, which is typical:
 2. node aborted with `Cannot load externalized builtin`, and init restarted it
    every second. Fix: trace the files it opens on the host (see
    [Debugging](#debugging)) and copy them.
-3. At the default `MEM=32` it never answered within 15 seconds. Fix: `MEM=64`.
+3. At the default `MEM=32` it hung with no error, and never answered in 90
+   seconds. It didn't answer in 45 seconds at 40MB either, took 3.8 seconds at
+   48MB and 0.5 seconds at 64MB. Fix: `MEM=64`.
 
 ### Steps
 
