@@ -15,6 +15,13 @@
 # or both can be set:
 #   SSHFWD=2222 ./boot-qemu.sh && ssh -p 2222 root@localhost
 #
+# Those ports and :1234 listen on 127.0.0.1 only. BIND_ADDR= names another host
+# address to listen on, e.g. BIND_ADDR=0.0.0.0 to open them to the network.
+#
+# User-mode networking shows the guest the host's loopback as 10.0.2.2, so the
+# guest can connect to anything listening on 127.0.0.1 on the host. That is why
+# there is no QEMU monitor here: on a TCP port, the guest could drive it.
+#
 # Guest RAM is 32MB unless MEM= says otherwise (in MB). The guest's hostname
 # is the kernel's default (minlin) unless GUEST_NAME= gives one.
 #
@@ -46,6 +53,7 @@ SYS_DIR="$SCRIPT_DIR/sys"
 
 HOSTFWD="${HOSTFWD:-}"
 SSHFWD="${SSHFWD:-}"
+BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
 MEM="${MEM:-32}"
 GUEST_NAME="${GUEST_NAME:-}"
 SWAP="${SWAP:-}"
@@ -56,11 +64,11 @@ kvm_flag=()
 if [ -n "$HOSTFWD$SSHFWD" ]; then
     ip="10.0.2.15::10.0.2.2:255.255.255.0:$GUEST_NAME:eth0:off"
     netdev="user,id=testnet1"
-    [ -n "$HOSTFWD" ] && netdev+=",hostfwd=tcp::$HOSTFWD-:80"
-    [ -n "$SSHFWD" ] && netdev+=",hostfwd=tcp::$SSHFWD-:22"
+    [ -n "$HOSTFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$HOSTFWD-:80"
+    [ -n "$SSHFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$SSHFWD-:22"
 else
     ip="192.168.1.2:::255.255.255.0:$GUEST_NAME:eth0:off"
-    netdev="socket,id=testnet1,listen=:1234"
+    netdev="socket,id=testnet1,listen=$BIND_ADDR:1234"
 fi
 
 swap_drive=()
@@ -80,4 +88,4 @@ qemu-system-x86_64 "${kvm_flag[@]}" -m "${MEM}M" -nographic -nodefaults -no-rebo
     "${swap_drive[@]}" \
     -netdev "$netdev" \
     -device virtio-net-device,netdev=testnet1,mac=10:11:12:00:1A:F4 \
-    -monitor telnet:localhost:8086,server,nowait
+    -monitor none
