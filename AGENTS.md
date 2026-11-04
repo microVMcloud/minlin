@@ -326,7 +326,7 @@ and boot the same disk with `MEM=64` or more. If the app works there, the
 minimal kernel is missing an option. Rebuild the minimal kernel afterwards.
 
 `build-linux-full.sh` has its own option list and patches, as well as its own
-`KERNEL_VERSION`. Keep shared changes in both scripts. Changes to `init.c` also
+`KERNEL_VERSION` and `KERNEL_SHA256`. Keep shared changes in both scripts. Changes to `init.c` also
 need a kernel rebuild, because init is built into the kernel.
 
 ## Debugging

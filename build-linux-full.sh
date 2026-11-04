@@ -22,6 +22,8 @@ KERNEL_DIR="$WORKDIR/linux-full"
 SYS_DIR="$SCRIPT_DIR/sys"
 JOBS="$(nproc)"
 KERNEL_VERSION="7.2.15" # 6.18.60 also tested as it is LTS
+# From sha256sums.asc beside the tarball on kernel.org. Change it with KERNEL_VERSION.
+KERNEL_SHA256="d0f6b1d7324c937ccaeb5c4ca7084bfcf71db2edb3e2d3a31f0ad83a681809ab"
 KERNEL_TARBALL_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz"
 KERNEL_TARBALL="$SCRIPT_DIR/linux-${KERNEL_VERSION}.tar.xz"
 
@@ -29,16 +31,29 @@ log() { printf '\n>>> %s\n' "$*"; }
 
 check_deps() {
     local missing=()
-    for tool in curl tar xz make gcc bc flex bison qemu-system-x86_64; do
+    for tool in curl sha256sum tar xz make gcc bc flex bison qemu-system-x86_64; do
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
     # objtool needs libelf headers, which are a library, not a tool.
     echo "#include <gelf.h>" | gcc -E - >/dev/null 2>&1 || missing+=("libelf-dev")
     if [ "${#missing[@]}" -gt 0 ]; then
         echo "Missing requirements: ${missing[*]}" >&2
-        echo "On Debian/Ubuntu: sudo apt install curl xz-utils build-essential bc flex bison qemu-system-x86 libelf-dev" >&2
+        echo "On Debian/Ubuntu: sudo apt install curl coreutils xz-utils build-essential bc flex bison qemu-system-x86 libelf-dev" >&2
         exit 1
     fi
+}
+
+# A kernel from a bad tarball would otherwise build and boot without complaint.
+verify_tarball() {
+    local file="$1" actual
+    actual="$(sha256sum "$file" | cut -d' ' -f1)"
+    [ "$actual" = "$KERNEL_SHA256" ] && return 0
+    echo "SHA-256 mismatch for $file" >&2
+    echo "  expected $KERNEL_SHA256" >&2
+    echo "  actual   $actual" >&2
+    echo "If KERNEL_VERSION changed, update KERNEL_SHA256 from" >&2
+    echo "  ${KERNEL_TARBALL_URL%/*}/sha256sums.asc" >&2
+    return 1
 }
 
 fetch_kernel() {
@@ -49,9 +64,18 @@ fetch_kernel() {
 
     if [ ! -f "$KERNEL_TARBALL" ]; then
         log "Downloading Linux v$KERNEL_VERSION into $KERNEL_TARBALL"
-        curl -fL -o "$KERNEL_TARBALL" "$KERNEL_TARBALL_URL"
+        # Download beside the real name, so an interrupted download can't pass
+        # as a tarball that's already present. This name is ignored by git too.
+        local partial="${KERNEL_TARBALL%.tar.xz}.part.tar.xz"
+        curl -fL -o "$partial" "$KERNEL_TARBALL_URL"
+        verify_tarball "$partial" || { rm -f "$partial"; exit 1; }
+        mv "$partial" "$KERNEL_TARBALL"
     else
         log "Tarball already present at $KERNEL_TARBALL, skipping download"
+        verify_tarball "$KERNEL_TARBALL" || {
+            echo "Otherwise delete the tarball to download it again." >&2
+            exit 1
+        }
     fi
 
     log "Extracting kernel source into $KERNEL_DIR"
