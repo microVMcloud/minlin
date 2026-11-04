@@ -21,7 +21,7 @@ WORKDIR="${1:-$PWD/linux-src}"
 KERNEL_DIR="$WORKDIR/linux-full"
 SYS_DIR="$SCRIPT_DIR/sys"
 JOBS="$(nproc)"
-KERNEL_VERSION="7.2.15" # 6.18.60 also tested as it is LTS
+KERNEL_VERSION="7.3.1" # 6.18.60 also tested as it is LTS
 # From sha256sums.asc beside the tarball on kernel.org. Change it with KERNEL_VERSION.
 KERNEL_SHA256="d0f6b1d7324c937ccaeb5c4ca7084bfcf71db2edb3e2d3a31f0ad83a681809ab"
 KERNEL_TARBALL_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz"
