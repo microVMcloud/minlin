@@ -38,6 +38,7 @@ Boot settings are environment variables:
 | `GUEST_NAME` | both | hostname |
 | `SWAP` | both | a `mkswap` file to attach as `/dev/vdb` |
 | `HOSTFWD`, `SSHFWD` | QEMU | host ports to forward to guest ports 80 and 22. Either one also gives the guest outbound internet through user-mode networking |
+| `BIND_ADDR` | QEMU | host address those ports and `:1234` listen on, default `127.0.0.1`. `0.0.0.0` opens them to the network |
 | `BRIDGE`, `TAP`, `GUEST_IP`, `HUGEPAGES` | Firecracker | see the comments in `boot-firecracker.sh` |
 
 In QEMU, Ctrl-A x kills the VM. A killed VM skips init's final sync, so recent
@@ -48,13 +49,17 @@ the serial console or over the network.
 
 ## Before changing build output
 
-- `sys/diskimage` is a single file that every `build-disk.sh` overwrites, and a
-  running VM may be using it. Check with `pgrep -a 'qemu|firecracker'` first.
+- `sys/diskimage` is a single file that every successful `build-disk.sh` replaces,
+  and a running VM may be using it. That VM keeps the old image, whose changes
+  are lost when it exits. Check with `pgrep -a 'qemu|firecracker'` first.
 - `build-linux-full.sh` replaces the minimal kernel in `sys/`. Run
   `build-linux.sh` afterwards to restore it.
 - `build-linux.sh` deletes the kernel tree and rebuilds from scratch every time.
-- QEMU uses fixed ports (monitor on 8086, plus 1234 without `HOSTFWD`/`SSHFWD`),
-  so only one VM runs at a time from an unmodified script.
+- QEMU listens on port 1234 without `HOSTFWD`/`SSHFWD`, and all VMs share one
+  `sys/diskimage`, so only one VM runs at a time from an unmodified script.
+- Don't add a QEMU monitor on a TCP port. User-mode networking shows the guest
+  the host's loopback as `10.0.2.2`, so the guest could drive the monitor. The
+  same goes for any other service on the host's `127.0.0.1`.
 
 To experiment without touching the user's image, work from a copy. `sys/` is
 found relative to the script, and the work directory relative to `$PWD`:
@@ -70,7 +75,8 @@ found relative to the script, and the work directory relative to `$PWD`:
 Disk images and `linux-src/rootfs/` can hold auth keys, tokens and host keys in
 plain text. Pass secrets in through environment variables at build time, and
 keep anything that must survive a rebuild in `$WORKDIR` (see `apps/lightpanda`
-and `apps/sshd`). Never commit them to `apps/`.
+and `apps/sshd`). Never commit them to `apps/`. `build-disk.sh` makes
+`sys/diskimage` readable only by the user who built it.
 
 ## Adding an app
 
@@ -191,7 +197,8 @@ command aborts the build. It starts with a comment that begins
 
 | Name | Meaning |
 |------|---------|
-| `install_binary <path>` | copy a host file to the same path on the disk, along with everything `ldd` reports |
+| `install_binary <path>` | copy a host file to the same path on the disk, along with everything `ldd` reports. Fails if `ldd` reports a library as not found |
+| `install_libs <path>` | the same for the libraries only, for a program installed at another path |
 | `require <cmd> [apt-pkg]` | fail with an install hint if the host lacks a command |
 | `log <msg>` | print a progress line |
 | `$ROOTFS` | the tree that becomes the disk. It is deleted at the start of each build |
@@ -215,14 +222,12 @@ Common patterns:
 
       mkdir -p "$ROOTFS/usr/bin"
       cp -L "$PROG" "$ROOTFS/usr/bin/prog"
-      ldd "$PROG" | { grep -o '/[^ ]*' || true; } | while read -r lib; do
-          install_binary "$lib"
-      done
+      install_libs "$PROG"
 
 - **Compiled from source in the app:** build into `$ROOTFS` with
   `gcc -static -o "$ROOTFS/usr/local/bin/prog" "$APP_DIR/src/prog.c"` after a
   `mkdir -p`. `install_binary` can't help here because the file isn't at its
-  disk path on the host. For a dynamic build, use the `ldd` loop above.
+  disk path on the host. For a dynamic build, use `install_libs`.
 - **Reusing another app:** `source "$SCRIPT_DIR/apps/bash/install.sh"` adds bash,
   busybox and terminfo (`apps/sshd` does this). Only `install.sh` is reused:
   another app's `rootfs/` isn't copied unless you copy it yourself.
@@ -330,7 +335,7 @@ need a kernel rebuild, because init is built into the kernel.
 |------------------------|--------------|
 | `init: exec X: Exec format error` | `X` is a script: name its interpreter |
 | `init: exec X: No such file or directory` | wrong or relative path, or its dynamic loader is missing |
-| `mount /dev/vda: Invalid argument` | the image is bad, usually because `mkfs.ext4` failed for lack of space. Raise `DISK_SIZE` |
+| `mount /dev/vda: Invalid argument` | `sys/diskimage` isn't a valid ext4 image. `build-disk.sh` only installs an image when `mkfs.ext4` succeeds, so suspect something else changed the file |
 | `error while loading shared libraries` | a library `ldd` didn't report |
 | The same `started`/`exited` lines repeating every second | a `respawn` program is crash-looping. Read the first error above the loop |
 | `Function not implemented`, `ENOSYS`, `Address family not supported` | see [Kernel limits](#kernel-limits) |
