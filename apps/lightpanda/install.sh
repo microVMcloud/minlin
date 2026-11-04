@@ -25,9 +25,7 @@ install_binary "$(command -v env)"
 # it, then the libraries the host's copy needs.
 mkdir -p "$ROOTFS/usr/bin"
 cp -L "$LIGHTPANDA" "$ROOTFS/usr/bin/lightpanda"
-ldd "$LIGHTPANDA" | { grep -o '/[^ ]*' || true; } | while read -r lib; do
-    install_binary "$lib"
-done
+install_libs "$LIGHTPANDA"
 # Its TLS stack reads the hashed certificates in the directory, not the bundle.
 cp -a --parents -L /etc/ssl/certs "$ROOTFS"
 
