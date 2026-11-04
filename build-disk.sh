@@ -122,10 +122,32 @@ check_init_conf() {
     [ "$errors" -eq 0 ] || exit 1
 }
 
+# Fail before assembling anything if mkfs.ext4 can't read a tarball, which the
+# image build below relies on. That takes e2fsprogs 1.47.1 or later, and it loads
+# libarchive at runtime, which e2fsprogs only suggests. Trying it covers both, and
+# an older mkfs.ext4 has no flag or message that says so clearly.
+check_mkfs_tar() {
+    local dir err
+    dir="$(mktemp -d)"
+    mkdir "$dir/empty"
+    tar -C "$dir/empty" -cf "$dir/probe.tar" .
+    if ! err="$(mkfs.ext4 -q -d "$dir/probe.tar" "$dir/probe.img" 16M 2>&1)"; then
+        rm -rf "$dir"
+        echo "mkfs.ext4 can't build a disk image from a tarball:" >&2
+        printf '  %s\n' "$err" >&2
+        echo "It needs e2fsprogs 1.47.1 or later, and libarchive." >&2
+        echo "On Debian/Ubuntu: sudo apt install e2fsprogs libarchive13t64 (libarchive13 on older releases)" >&2
+        exit 1
+    fi
+    rm -rf "$dir"
+}
+
 [ -d "$APP_DIR" ] || { echo "No such app: $APP_DIR" >&2; exit 1; }
 require ldd libc-bin
 require mkfs.ext4 e2fsprogs
 require readelf binutils
+require tar
+check_mkfs_tar
 
 log "Assembling root filesystem for $APP in $ROOTFS"
 rm -rf "$ROOTFS"
