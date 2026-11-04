@@ -11,17 +11,36 @@
 # as /, holding whichever program from apps/ the VM should run. A successful
 # build copies bzImage (for QEMU) and vmlinux (for Firecracker) into sys/,
 # next to the diskimage.
+#
+# Usage: build-linux.sh [full] [workdir]
+#
+# "full" instead configures a stock x86_64_defconfig plus kvm_guest.config,
+# adding the few options init and the apps rely on (virtio-mmio, devtmpfs, TUN,
+# nftables NAT). Nothing is stripped out, so the kernel is several MB larger and
+# needs more guest RAM than the minimal one (boot with MEM=64 or more). Its
+# source tree lives in linux-full next to the minimal linux tree, so both can be
+# kept, but it replaces the minimal kernel in sys/.
 
 set -euo pipefail
 
+FULL=0
+if [ "${1:-}" = full ]; then
+    FULL=1
+    shift
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 WORKDIR="${1:-$PWD/linux-src}"
-KERNEL_DIR="$WORKDIR/linux"
+if [ "$FULL" = 1 ]; then
+    KERNEL_DIR="$WORKDIR/linux-full"
+else
+    KERNEL_DIR="$WORKDIR/linux"
+fi
 SYS_DIR="$SCRIPT_DIR/sys"
 JOBS="$(nproc)"
 KERNEL_VERSION="7.3.1" # 6.18.60 also tested as it is LTS
 # From sha256sums.asc beside the tarball on kernel.org. Change it with KERNEL_VERSION.
-KERNEL_SHA256="d0f6b1d7324c937ccaeb5c4ca7084bfcf71db2edb3e2d3a31f0ad83a681809ab"
+KERNEL_SHA256="fa595aad93734f829c963c2a90ef7c3673224fd7fdae7b49406e397cde2de231"
 KERNEL_TARBALL_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz"
 KERNEL_TARBALL="$SCRIPT_DIR/linux-${KERNEL_VERSION}.tar.xz"
 
@@ -261,6 +280,60 @@ configure_kernel() {
     make -C "$KERNEL_DIR" ARCH=x86_64 olddefconfig
 }
 
+configure_kernel_full() {
+    log "Generating x86_64_defconfig with kvm_guest.config"
+    make -C "$KERNEL_DIR" ARCH=x86_64 x86_64_defconfig kvm_guest.config
+
+    # init needs a console on ttyS0, devtmpfs and an ext4 root on virtio-blk.
+    # Firecracker has no PCI bus, so its virtio devices come from
+    # virtio_mmio.device= on the command line. Anything defconfig leaves as a
+    # module is useless here (there is no module tree), so build it in.
+    # PANIC_TIMEOUT: the default of 0 leaves a panicked VM hanging forever, and
+    # loglevel=0 hides the message. Rebooting ends the VM under any VMM.
+    log "Enabling options needed for console, devtmpfs and virtio-mmio disk/net"
+    "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
+        --enable DEVTMPFS \
+        --enable DEVTMPFS_MOUNT \
+        --enable SERIAL_8250 \
+        --enable SERIAL_8250_CONSOLE \
+        --enable VIRTIO_MENU \
+        --enable VIRTIO \
+        --enable VIRTIO_MMIO \
+        --enable VIRTIO_MMIO_CMDLINE_DEVICES \
+        --enable VIRTIO_BLK \
+        --enable VIRTIO_NET \
+        --enable EXT4_FS \
+        --set-val PANIC_TIMEOUT 1 \
+        --set-val LOCALVERSION '""' \
+        --disable LOCALVERSION_AUTO \
+        --set-str DEFAULT_HOSTNAME minlin
+
+    # Tailscale needs a TUN device and policy routing, and as an exit node
+    # masquerades forwarded traffic with nftables.
+    log "Enabling TUN, policy routing and nftables NAT for Tailscale"
+    "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
+        --enable TUN \
+        --enable IP_ADVANCED_ROUTER \
+        --enable IP_MULTIPLE_TABLES \
+        --enable NETFILTER \
+        --enable NF_CONNTRACK \
+        --enable NF_NAT \
+        --enable NF_TABLES \
+        --enable NF_TABLES_IPV4 \
+        --enable NFT_CT \
+        --enable NFT_NAT \
+        --enable NFT_MASQ
+
+    log "Embedding init as an uncompressed built-in initramfs"
+    "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
+        --enable BLK_DEV_INITRD \
+        --set-str INITRAMFS_SOURCE "$WORKDIR/initramfs.list" \
+        --enable INITRAMFS_COMPRESSION_NONE
+
+    log "Resolving dependencies with olddefconfig"
+    make -C "$KERNEL_DIR" ARCH=x86_64 olddefconfig
+}
+
 build_kernel() {
     log "Building kernel (-j$JOBS)"
     make -C "$KERNEL_DIR" ARCH=x86_64 -j"$JOBS"
@@ -315,7 +388,11 @@ patch_kernel
 write_init
 build_init
 write_initramfs_list
-configure_kernel
+if [ "$FULL" = 1 ]; then
+    configure_kernel_full
+else
+    configure_kernel
+fi
 build_kernel
 install_kernel
 #boot_qemu

@@ -12,8 +12,7 @@ to work in the repo and how to add new apps.
 | Path | Purpose |
 |------|---------|
 | `init.c` | PID 1: sets up networking, mounts the disk, runs `/etc/init.conf` |
-| `build-linux.sh` | builds the minimal kernel, with init inside it |
-| `build-linux-full.sh` | builds a defconfig kernel with the same init, for comparison and debugging |
+| `build-linux.sh` | builds the minimal kernel, with init inside it. With `full`, builds a defconfig kernel with the same init, for comparison and debugging |
 | `build-disk.sh <app>` | builds the disk image for `apps/<app>/` |
 | `boot-qemu.sh`, `boot-firecracker.sh` | boot `sys/` under each VMM |
 | `apps/<app>/` | one directory per app |
@@ -52,7 +51,7 @@ the serial console or over the network.
 - `sys/diskimage` is a single file that every successful `build-disk.sh` replaces,
   and a running VM may be using it. That VM keeps the old image, whose changes
   are lost when it exits. Check with `pgrep -a 'qemu|firecracker'` first.
-- `build-linux-full.sh` replaces the minimal kernel in `sys/`. Run
+- `build-linux.sh full` replaces the minimal kernel in `sys/`. Run
   `build-linux.sh` afterwards to restore it.
 - `build-linux.sh` deletes the kernel tree and rebuilds from scratch every time.
 - QEMU listens on port 1234 without `HOSTFWD`/`SSHFWD`, and all VMs share one
@@ -321,13 +320,13 @@ If the option is needed:
    difference. Small free memory is the point of this project.
 4. List the option under Kernel support in the app's README.
 
-To check whether a failure is kernel-related at all, run `./build-linux-full.sh`
+To check whether a failure is kernel-related at all, run `./build-linux.sh full`
 and boot the same disk with `MEM=64` or more. If the app works there, the
 minimal kernel is missing an option. Rebuild the minimal kernel afterwards.
 
-`build-linux-full.sh` has its own option list and patches, as well as its own
-`KERNEL_VERSION` and `KERNEL_SHA256`. Keep shared changes in both scripts. Changes to `init.c` also
-need a kernel rebuild, because init is built into the kernel.
+`build-linux.sh full` has its own option list, in `configure_kernel_full`, and
+shares the kernel version and patches with the minimal build. Changes to `init.c`
+also need a kernel rebuild, because init is built into the kernel.
 
 ## Debugging
 
