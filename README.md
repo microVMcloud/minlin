@@ -6,12 +6,12 @@ MINimal LINux
 
 A tiny x86-64 Linux kernel (tinyconfig plus virtio-mmio) with a custom `init.c` built into its initramfs, booting under QEMU microvm or Firecracker and running ordinary, dynamically linked Linux programs from an ext4 disk.
 
-| Linux 7.2.15 (booted with 64 MiB RAM) | minlin | Full |
+| Linux 7.3.1 (booted with 64 MiB RAM) | minlin | Full |
 | -------- | -------- | -------- |
-| bzImage (bytes) | 1,745,920 | 15,270,912 |
-| vmlinux (bytes) | 13,012,472 | 53,905,608 |
-| Free Memory (KiB) | 49,384 | 10,704 |
-| Startup time (seconds) | 0.010732 | 2.911762 |
+| bzImage (bytes) | 1,754,112 | 15,303,680 |
+| vmlinux (bytes) | 10,911,240 | 53,934,448 |
+| Free Memory (KiB) | 51,188 | 10,780 |
+| Startup time (seconds) | 0.010735 | 2.906956 |
 
 Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: free memory is `MemFree` from `/proc/meminfo` as the first program runs, and startup time is the kernel timestamp of "Run /init as init process". Most of the full kernel's startup time is spent probing for an RTC, which microvm doesn't have.
 
