@@ -27,7 +27,9 @@ minlin is the default Linux kernel used at [microVM Cloud](https://microvmcloud.
                                      #  dropbear / tailscale / lightpanda /
                                      #  node)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
-                                     # (SSHFWD=2222 for ssh -p 2222 root@localhost)
+                                     # (SSHFWD=2222 for ssh -p 2222 root@localhost;
+                                     #  these listen on 127.0.0.1, BIND_ADDR=0.0.0.0
+                                     #  opens them to the network)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
                                      # (both take MEM=<MB>, default 32,
                                      #  and GUEST_NAME=, default minlin)
