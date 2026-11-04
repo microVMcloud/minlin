@@ -21,6 +21,10 @@ for applet in $("$busybox" --list); do
     link="$ROOTFS$(dirname "$busybox")/$applet"
     [ -e "$link" ] || ln -s busybox "$link"
 done
+# system() and popen() run /bin/sh, whatever PATH says. Without it they fail
+# with status 127. Here /bin is only missing if the host's busybox is in /usr/bin,
+# where the sh applet's link just went.
+[ -e "$ROOTFS/bin" ] || ln -s usr/bin "$ROOTFS/bin"
 
 # The kernel starts init with TERM=linux, which init passes on to bash.
 # readline needs that terminal's description for line editing.

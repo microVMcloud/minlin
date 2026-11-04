@@ -90,6 +90,8 @@ configure_kernel() {
     log "Generating tinyconfig for x86_64"
     make -C "$KERNEL_DIR" ARCH=x86_64 tinyconfig
 
+    # PANIC_TIMEOUT: the default of 0 leaves a panicked VM hanging forever, and
+    # loglevel=0 hides the message. Rebooting ends the VM under any VMM.
     log "Enabling options needed for console, ELF init and virtio-mmio disk/net"
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
         --enable BINFMT_ELF \
@@ -120,6 +122,7 @@ configure_kernel() {
         --disable IPV6 \
         --enable PROC_FS \
         --enable EXT4_FS \
+        --set-val PANIC_TIMEOUT 1 \
         --set-val LOCALVERSION '""' \
         --set-str DEFAULT_HOSTNAME minlin
 

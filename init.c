@@ -298,6 +298,7 @@ struct service {
 	enum action action;
 	char *argv[MAX_ARGS + 1];
 	pid_t pid;
+	long long restart_at;	/* CLOCK_MONOTONIC ms, 0 if none is due */
 };
 
 static struct service services[MAX_SERVICES];
@@ -417,20 +418,57 @@ static void spawn(struct service *svc) {
 	fprintf(stderr, "init: started %s (pid %d)\n", svc->argv[0], pid);
 }
 
+#define RESPAWN_DELAY_MS	1000	/* don't spin on a service that dies at once */
+
+static long long now_ms(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000;
+}
+
 /*
  * Reap children until target exits (or, with target -1, until there are no
- * children left). As PID 1 this also collects orphans that were reparented
- * to us, and restarts respawn services as they exit. Returns early when a
- * shutdown signal arrives.
+ * children left and no service waiting to restart). As PID 1 this also collects
+ * orphans that were reparented to us, and restarts respawn services after they
+ * exit. Returns early when a shutdown signal arrives.
+ *
+ * Restarts are timed rather than slept through, and only happen once every
+ * exit is reaped. Sleeping here gave crash-looping services time to die in turn,
+ * so with two of them there was always another exit to reap, the signal wait
+ * was never reached, and shutdown signals were never seen.
  */
 static void wait_for(pid_t target) {
 	while (!shutting_down) {
 		int status;
 		pid_t pid = waitpid(-1, &status, WNOHANG);
-		if (pid < 0)
-			return;		/* no children left */
-		if (pid == 0) {
-			next_signal(NULL);
+		if (pid <= 0) {
+			long long now = now_ms(), next = 0;
+			int restarted = 0;
+			for (int i = 0; i < nservices; i++) {
+				long long at = services[i].restart_at;
+				if (!at)
+					continue;
+				if (at <= now) {
+					services[i].restart_at = 0;
+					spawn(&services[i]);
+					restarted = 1;
+				} else if (!next || at < next) {
+					next = at;
+				}
+			}
+			if (restarted)
+				continue;
+			if (next) {
+				struct timespec left = {
+					.tv_sec = (next - now) / 1000,
+					.tv_nsec = (next - now) % 1000 * 1000000,
+				};
+				next_signal(&left);
+			} else if (pid < 0) {
+				return;		/* no children left */
+			} else {
+				next_signal(NULL);
+			}
 			continue;
 		}
 
@@ -446,10 +484,8 @@ static void wait_for(pid_t target) {
 			else
 				fprintf(stderr, "init: %s (pid %d) exited with status %d\n",
 					svc->argv[0], pid, WEXITSTATUS(status));
-			if (svc->action == ACT_RESPAWN && !shutting_down) {
-				sleep(1);	/* don't spin on a service that dies at once */
-				spawn(svc);
-			}
+			if (svc->action == ACT_RESPAWN)
+				svc->restart_at = now_ms() + RESPAWN_DELAY_MS;
 		}
 		if (pid == target)
 			return;

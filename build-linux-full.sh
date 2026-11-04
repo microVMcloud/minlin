@@ -96,6 +96,8 @@ configure_kernel() {
     # Firecracker has no PCI bus, so its virtio devices come from
     # virtio_mmio.device= on the command line. Anything defconfig leaves as a
     # module is useless here (there is no module tree), so build it in.
+    # PANIC_TIMEOUT: the default of 0 leaves a panicked VM hanging forever, and
+    # loglevel=0 hides the message. Rebooting ends the VM under any VMM.
     log "Enabling options needed for console, devtmpfs and virtio-mmio disk/net"
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
         --enable DEVTMPFS \
@@ -109,6 +111,7 @@ configure_kernel() {
         --enable VIRTIO_BLK \
         --enable VIRTIO_NET \
         --enable EXT4_FS \
+        --set-val PANIC_TIMEOUT 1 \
         --set-val LOCALVERSION '""' \
         --disable LOCALVERSION_AUTO \
         --set-str DEFAULT_HOSTNAME minlin
