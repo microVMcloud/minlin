@@ -67,8 +67,12 @@ Each directory in `apps/` is something the VM can run. `build-disk.sh <app>` bui
   host has something, copy anything else into `$ROOTFS`, and set `DISK_SIZE`
   if the default 128M is too small.
 
+### lighttpd
+
 `apps/lighttpd` serves `rootfs/var/www` on port 80 with its access log on the
 console.
+
+### python
 
 `apps/python` runs `rootfs/app/main.py` with the host's `python3` (so the host
 needs Python 3): a small `http.server` on port 80 that reports the Python
@@ -77,6 +81,8 @@ space, as HTML at `/` and as JSON at `/metrics.json`. Its standard library is
 copied too, minus the test suite, GUI packages and the static libpython, along
 with the shared libraries its extension modules (ssl, sqlite3, ...) link
 against.
+
+### node
 
 `apps/node` runs `rootfs/app/server.js` with the host's `node`, a small web
 server on port 80. It expects Debian/Ubuntu's `nodejs` package (tested with
@@ -89,9 +95,13 @@ error (no response in 45s at 40MB, or in 90s at the default 32MB).
     ./build-disk.sh node
     MEM=64 HOSTFWD=8080 ./boot-qemu.sh
 
+### top
+
 `apps/top` runs the host's `top` (procps) on the serial console, along with
 the `linux` terminfo entry it draws with (the kernel starts init with
 `TERM=linux`). Press `q` to quit top, which also ends the VM.
+
+### bash
 
 `apps/bash` runs an interactive `bash` on the serial console, with a
 `user@host:dir` prompt (set in `/etc/bash.bashrc`) and the host's static
@@ -101,6 +111,8 @@ controlling terminal, so it goes through util-linux `setsid -c` to make the
 console bash's controlling tty; that gives job control and a working Ctrl-C.
 `exit` or Ctrl-D ends the VM. See
 [apps/bash/README.md](apps/bash/README.md) for the details.
+
+### sshd
 
 `apps/sshd` runs the host's OpenSSH server (with the client too) and logs to
 the console, with `bash` and the commands from `apps/bash` as root's login
@@ -119,6 +131,8 @@ init reboots once the last session ends. Killing the VM instead can lose
 recent writes that weren't synced to the disk yet. See
 [apps/sshd/README.md](apps/sshd/README.md) for the details.
 
+### dropbear
+
 `apps/dropbear` is the same, with the host's Dropbear SSH server (and its
 `dbclient`) in place of OpenSSH: a single process per connection, no
 privilege separation user and a bit more free memory. It takes
@@ -131,6 +145,8 @@ privilege separation user and a bit more free memory. It takes
 
 Shut it down with `kill $(cat /var/run/dropbear.pid)` and log out. See
 [apps/dropbear/README.md](apps/dropbear/README.md) for the details.
+
+### tailscale
 
 `apps/tailscale` runs the host's `tailscaled` with kernel-mode networking (a
 `tailscale0` TUN device and policy routing; IPv4 only), using 1.1.1.1 and
@@ -145,6 +161,8 @@ With `TS_EXIT_NODE=1` it also advertises itself as an exit node (approve it in
 the admin console), turning on IPv4 forwarding and NAT with nftables. Exit
 traffic is IPv4 only, so tailscaled warns that IP forwarding is disabled: that
 is IPv6 forwarding, which the guest doesn't have.
+
+### lightpanda
 
 `apps/lightpanda` runs [Lightpanda](https://lightpanda.io), a headless
 browser with a JavaScript engine (V8), as an MCP server on port 80, so an AI
@@ -162,6 +180,8 @@ network buffers. See
     MEM=128 HOSTFWD=8080 ./boot-qemu.sh
     claude mcp add --transport http minlin-browser http://localhost:8080/mcp \
         --header "Authorization: Bearer $(cat linux-src/lightpanda_mcp_token)"
+
+### Adding an app
 
 To add another app, create `apps/<name>/` with a `rootfs/etc/init.conf` and an
 `install.sh` that installs whatever it needs (see [AGENTS.md](AGENTS.md)). The
