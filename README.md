@@ -17,7 +17,7 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
 
 This project started based on this [blog post](https://nick.zoic.org/art/boot-naked-linux/) and is very similar to other Linux "Unikernel" projects.
 
-minlin is the default Linux kernel used at [microVM Cloud](https://microvmcloud.com).
+minlin is the default Linux kernel used at [microVM Cloud](https://microvm.cloud).
 
 ## Build and boot
 
