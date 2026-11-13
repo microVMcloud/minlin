@@ -38,9 +38,9 @@ else
 fi
 SYS_DIR="$SCRIPT_DIR/sys"
 JOBS="$(nproc)"
-KERNEL_VERSION="7.3.1" # 6.18.60 also tested as it is LTS
+KERNEL_VERSION="7.3.4" # 6.18.63 also tested as it is LTS
 # From sha256sums.asc beside the tarball on kernel.org. Change it with KERNEL_VERSION.
-KERNEL_SHA256="fa595aad93734f829c963c2a90ef7c3673224fd7fdae7b49406e397cde2de231"
+KERNEL_SHA256="b11b6df8295e8e991ff040b71aaa4994a8b55caa23b6b092907f195b5840fd1f"
 KERNEL_TARBALL_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz"
 KERNEL_TARBALL="$SCRIPT_DIR/linux-${KERNEL_VERSION}.tar.xz"
 
@@ -64,7 +64,13 @@ check_deps() {
 verify_tarball() {
     local file="$1" actual
     actual="$(sha256sum "$file" | cut -d' ' -f1)"
-    [ "$actual" = "$KERNEL_SHA256" ] && return 0
+    if [ "$actual" = "$KERNEL_SHA256" ]; then
+        # Shown so the user can check it against kernel.org independently of
+        # the hash pinned in this script.
+        log "SHA-256 of linux-${KERNEL_VERSION}.tar.xz: $actual"
+        echo "    Compare with ${KERNEL_TARBALL_URL%/*}/sha256sums.asc"
+        return 0
+    fi
     echo "SHA-256 mismatch for $file" >&2
     echo "  expected $KERNEL_SHA256" >&2
     echo "  actual   $actual" >&2
