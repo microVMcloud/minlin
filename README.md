@@ -2,22 +2,48 @@
 
 MINimal LINux
 
-## Summary
+minlin builds small, single-purpose x86-64 Linux VMs around ordinary Linux programs. Package your application with its libraries and files, choose what starts at boot, and run it under QEMU microvm or Firecracker.
 
-A tiny x86-64 Linux kernel (tinyconfig plus virtio-mmio) with a custom `init.c` built into its initramfs, booting under QEMU microvm or Firecracker and running ordinary, dynamically linked Linux programs from an ext4 disk.
+It is useful when you want a VM dedicated to one workload, with little memory spent on the operating system. Applications use normal Linux binaries and interpreters, including dynamically linked programs; they do not need to be rewritten for a specialized runtime.
+
+minlin is the default Linux kernel used at [microVM Cloud](https://microvm.cloud).
+
+This project started based on this [blog post](https://nick.zoic.org/art/boot-naked-linux/) and is very similar to other Linux "Unikernel" projects.
+
+
+## What can I use it for?
+
+| Use case | Examples in this repository |
+| -------- | -------- |
+| Run a small web service in its own VM | Static sites with [lighttpd](#lighttpd); [Python](#python) or [Node.js](#node) HTTP services |
+| Give an AI agent a browser running in a dedicated VM | [Lightpanda](#lightpanda)'s browser MCP server |
+| Build a network appliance | A [Tailscale](#tailscale) node or IPv4 exit node |
+| Provide a small remote environment | Bash with [OpenSSH](#sshd) or [Dropbear](#dropbear) |
+| Experiment with minimal Linux systems | Inspect boot, memory use, and the kernel features an application needs, using [bash](#bash) |
+
+You can also package a one-off job: init ends the VM when its programs finish. There is no dedicated batch-job example yet. A single-purpose VM can run several cooperating processes, as the Lightpanda app does with its browser and lighttpd proxy.
+
+
+## Is it a fit for my application?
+
+minlin is intended for workloads whose dependencies can explicitly packaged. There is no package manager or general-purpose distribution environment by default. The kernel starts from tinyconfig plus virtio-mmio, with a custom `init.c` built into its initramfs and application files on an ext4 disk.
+
+The minimal kernel omits features such as IPv6, namespaces, and shared-memory facilities, so application compatibility may need testing. Larger runtimes also need more than the default 32MB of RAM: the Node.js example uses 64MB and Lightpanda uses 128MB. See [Kernel limits in AGENTS.md](AGENTS.md#kernel-limits) for the missing features and how to check what an application needs.
+
+The application disk is writable and persists between boots. Rebuild or replace the image when you want a fresh environment; shutting down the VM does not reset its disk. A killed VM can lose recent writes that were not synced yet.
+
+
+## Measurements
 
 | Linux 7.3.1 (booted with 64 MiB RAM) | minlin | Full |
 | -------- | -------- | -------- |
 | bzImage (bytes) | 1,754,112 | 15,303,680 |
 | vmlinux (bytes) | 10,911,240 | 53,934,448 |
 | Free Memory (KiB) | 51,188 | 10,780 |
-| Startup time (seconds) | 0.010735 | 2.906956 |
+| Kernel time to `/init` (seconds) | 0.010735 | 2.906956 |
 
-Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: free memory is `MemFree` from `/proc/meminfo` as the first program runs, and startup time is the kernel timestamp of "Run /init as init process". Most of the full kernel's startup time is spent probing for an RTC, which microvm doesn't have.
+Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: free memory is `MemFree` from `/proc/meminfo` as the first program runs, and kernel time to `/init` is the kernel timestamp of "Run /init as init process". This measures kernel startup; application readiness takes additional time. Most of the full kernel's startup time is spent probing for an RTC, which microvm doesn't have.
 
-This project started based on this [blog post](https://nick.zoic.org/art/boot-naked-linux/) and is very similar to other Linux "Unikernel" projects.
-
-minlin is the default Linux kernel used at [microVM Cloud](https://microvm.cloud).
 
 ## Build and boot
 
@@ -40,6 +66,7 @@ minlin is the default Linux kernel used at [microVM Cloud](https://microvm.cloud
 
 The kernel doesn't depend on the app, so switching apps only needs `build-disk.sh` re-run. The lighttpd app needs `lighttpd` installed on the host (`sudo apt install lighttpd`); the host's binary, its modules and shared libraries (found with `ldd`) are copied into the disk image.
 
+
 ## Boot sequence
 
 1. The kernel runs `/init` from the built-in initramfs.
@@ -48,6 +75,7 @@ The kernel doesn't depend on the app, so switching apps only needs `build-disk.s
 4. init turns on swap on every block device (whole disk or partition) that has a swap signature from `mkswap`.
 5. init applies `/etc/sysctl.conf` if the disk has one (`key = value` lines, as for `sysctl -p`).
 6. init runs the programs listed in `/etc/init.conf`, reaps children, and reboots (ending the VM) once nothing is left running.
+
 
 ## Swap
 
@@ -58,23 +86,20 @@ Both boot scripts take `SWAP=<file>` to attach a swap image as a second disk (`/
 
 The root disk must stay a whole-disk ext4 image at `/dev/vda`, so swap goes on its own disk. The minlin kernel has no partition-table parsers, so it only sees swap on a whole disk; the full kernel also finds swap partitions.
 
+
 ## Apps
 
 Each directory in `apps/` is something the VM can run. `build-disk.sh <app>` builds the disk from it:
 
-- `rootfs/` is copied onto the disk as-is (everything owned by root). It
-  should hold `etc/init.conf`, which says what init starts. Each line is
-  `<wait|once|respawn> /absolute/path [args...]`.
-- `install.sh` (optional) is sourced afterwards. It can call
-  `install_binary /path/on/host` to copy a host program and the shared
-  libraries it needs onto the disk, `require <cmd> [apt-package]` to check the
-  host has something, copy anything else into `$ROOTFS`, and set `DISK_SIZE`
-  if the default 128M is too small.
+- `rootfs/` is copied onto the disk as-is (everything owned by root). It should hold `etc/init.conf`, which says what init starts. Each line is `<wait|once|respawn> /absolute/path [args...]`.
+- `install.sh` (optional) is sourced afterwards. It can call `install_binary /path/on/host` to copy a host program and the shared libraries it needs onto the disk, `require <cmd> [apt-package]` to check the host has something, copy anything else into `$ROOTFS`, and set `DISK_SIZE` if the default 128M is too small.
+
 
 ### lighttpd
 
 `apps/lighttpd` serves `rootfs/var/www` on port 80 with its access log on the
 console.
+
 
 ### python
 
@@ -85,6 +110,7 @@ space, as HTML at `/` and as JSON at `/metrics.json`. Its standard library is
 copied too, minus the test suite, GUI packages and the static libpython, along
 with the shared libraries its extension modules (ssl, sqlite3, ...) link
 against.
+
 
 ### node
 
@@ -99,11 +125,13 @@ error (no response in 45s at 40MB, or in 90s at the default 32MB).
     ./build-disk.sh node
     MEM=64 HOSTFWD=8080 ./boot-qemu.sh
 
+
 ### top
 
 `apps/top` runs the host's `top` (procps) on the serial console, along with
 the `linux` terminfo entry it draws with (the kernel starts init with
 `TERM=linux`). Press `q` to quit top, which also ends the VM.
+
 
 ### bash
 
@@ -116,6 +144,7 @@ starts programs with no controlling terminal, so it goes through util-linux
 and a working Ctrl-C.
 `exit` or Ctrl-D ends the VM. See
 [apps/bash/README.md](apps/bash/README.md) for the details.
+
 
 ### sshd
 
@@ -136,6 +165,7 @@ init reboots once the last session ends. Killing the VM instead can lose
 recent writes that weren't synced to the disk yet. See
 [apps/sshd/README.md](apps/sshd/README.md) for the details.
 
+
 ### dropbear
 
 `apps/dropbear` is the same, with the host's Dropbear SSH server (and its
@@ -150,6 +180,7 @@ privilege separation user and a bit more free memory. It takes
 
 Shut it down with `kill $(cat /var/run/dropbear.pid)` and log out. See
 [apps/dropbear/README.md](apps/dropbear/README.md) for the details.
+
 
 ### tailscale
 
@@ -167,11 +198,13 @@ the admin console), turning on IPv4 forwarding and NAT with nftables. Exit
 traffic is IPv4 only, so tailscaled warns that IP forwarding is disabled: that
 is IPv6 forwarding, which the guest doesn't have.
 
+
 ### lightpanda
 
 `apps/lightpanda` runs [Lightpanda](https://lightpanda.io), a headless
 browser with a JavaScript engine (V8), as an MCP server on port 80, so an AI
-agent can browse the web from inside a throwaway VM. Lightpanda isn't
+agent can browse the web from inside a dedicated VM. Rebuild or replace the
+disk image between sessions when you want a fresh browser environment. Lightpanda isn't
 packaged: install it from its site (the build looks for `lightpanda` on the
 `PATH`, or set `LIGHTPANDA=/path/to/binary`). It is a single ~77MB binary
 needing only libc, and it starts with telemetry turned off. lighttpd sits in
@@ -185,6 +218,7 @@ network buffers. See
     MEM=128 HOSTFWD=8080 ./boot-qemu.sh
     claude mcp add --transport http minlin-browser http://localhost:8080/mcp \
         --header "Authorization: Bearer $(cat linux-src/lightpanda_mcp_token)"
+
 
 ### Adding an app
 
