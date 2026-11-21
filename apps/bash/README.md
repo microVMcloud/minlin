@@ -73,9 +73,18 @@ console bash's controlling terminal:
 
 The kernel starts init with `TERM=linux`, which init passes on to bash.
 readline needs that terminal's terminfo entry for line editing, so it's
-copied from the host. A serial console can't report its size, so bash
-assumes 80x24, and lines longer than the real window wrap oddly when
-edited. Set the real size with busybox's `stty`, e.g. `stty rows 50 cols 160`.
+copied from the host. A serial console can't report its size, so the guest
+sees 0x0 and readline assumes 80 columns. In a wider window, a command
+longer than 80 columns returns to the start of the line and is drawn over
+the prompt and its own beginning, though bash still receives all of it.
+
+To avoid that, `/etc/bash.bashrc` defines a `resize` function and runs it
+when the terminal has no size. It moves the cursor to the far corner, asks
+the host terminal where the cursor is (`ESC[6n`), and passes the answer to
+`stty rows R cols C`. The guest isn't told when the window changes, so run
+`resize` again after resizing it. If the terminal doesn't answer within a
+second, the size stays unset, and `stty rows 50 cols 160` sets it by hand.
+ssh sessions get their size from ssh, so `resize` doesn't run there.
 
 ## Memory
 
