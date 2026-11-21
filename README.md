@@ -16,6 +16,7 @@ This project started based on this [blog post](https://nick.zoic.org/art/boot-na
 | Use case | Examples in this repository |
 | -------- | -------- |
 | Run a small web service in its own VM | Static sites with [lighttpd](#lighttpd); [Python](#python) or [Node.js](#node) HTTP services |
+| Run a database server in its own VM | [PostgreSQL](#postgres) |
 | Give an AI agent a browser running in a dedicated VM | [Lightpanda](#lightpanda)'s browser MCP server |
 | Build a network appliance | A [Tailscale](#tailscale) node or IPv4 exit node |
 | Provide a small remote environment | Bash with [OpenSSH](#sshd) or [Dropbear](#dropbear) |
@@ -28,7 +29,7 @@ You can also package a one-off job: init ends the VM when its programs finish. T
 
 minlin is intended for workloads whose dependencies can explicitly packaged. There is no package manager or general-purpose distribution environment by default. The kernel starts from tinyconfig plus virtio-mmio, with a custom `init.c` built into its initramfs and application files on an ext4 disk.
 
-The minimal kernel omits features such as IPv6, namespaces, and shared-memory facilities, so application compatibility may need testing. Larger runtimes also need more than the default 32MB of RAM: the Node.js example uses 64MB and Lightpanda uses 128MB. See [Kernel limits in AGENTS.md](AGENTS.md#kernel-limits) for the missing features and how to check what an application needs.
+The minimal kernel omits features such as IPv6, namespaces, and POSIX shared memory (tmpfs), so application compatibility may need testing. Larger runtimes also need more than the default 32MB of RAM: the Node.js example uses 64MB and Lightpanda uses 128MB. See [Kernel limits in AGENTS.md](AGENTS.md#kernel-limits) for the missing features and how to check what an application needs.
 
 The application disk is writable and persists between boots. Rebuild or replace the image when you want a fresh environment; shutting down the VM does not reset its disk. A killed VM can lose recent writes that were not synced yet.
 
@@ -51,9 +52,10 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
                                      #  dropbear / tailscale / lightpanda /
-                                     #  node)
+                                     #  node / postgres)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
-                                     # (SSHFWD=2222 for ssh -p 2222 root@localhost;
+                                     # (SSHFWD=2222 for ssh -p 2222 root@localhost,
+                                     #  PGFWD=5432 for psql -h localhost;
                                      #  these listen on 127.0.0.1, BIND_ADDR=0.0.0.0
                                      #  opens them to the network)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
@@ -218,6 +220,24 @@ network buffers. See
     MEM=128 HOSTFWD=8080 ./boot-qemu.sh
     claude mcp add --transport http minlin-browser http://localhost:8080/mcp \
         --header "Authorization: Bearer $(cat linux-src/lightpanda_mcp_token)"
+
+
+### postgres
+
+`apps/postgres` runs the host's PostgreSQL server on port 5432, with a fresh
+database cluster that the host's `initdb` creates on each build. Clients log
+in over TCP as `postgres`, with a password the build generates and keeps in
+`linux-src/postgres_password` (or set `PG_PASSWORD=`). It needs the
+kernel's `SYSVIPC` and `SIGNALFD` options, so rebuild the kernel if yours
+predates them. Give it `MEM=48`: with 8MB of shared buffers, it loads
+`pgbench -i -s 2` and runs four clients at about 800 tps, while at 40MB a
+backend is killed for want of memory during that load, and at 32MB four
+concurrent queries were enough. See
+[apps/postgres/README.md](apps/postgres/README.md) for the details:
+
+    ./build-disk.sh postgres
+    MEM=48 PGFWD=5432 ./boot-qemu.sh
+    PGPASSWORD=$(cat linux-src/postgres_password) psql -h localhost -U postgres
 
 
 ### Adding an app

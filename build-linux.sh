@@ -210,6 +210,15 @@ configure_kernel() {
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
         --enable ADVISE_SYSCALLS
 
+    # PostgreSQL always creates a small System V shared memory segment, whose
+    # attach count tells it whether processes of an old server are still
+    # running, and its processes wait for signals on a signalfd. It won't
+    # start without either.
+    log "Enabling System V IPC and signalfd for PostgreSQL"
+    "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
+        --enable SYSVIPC \
+        --enable SIGNALFD
+
     log "Embedding init as an uncompressed built-in initramfs"
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
         --enable BLK_DEV_INITRD \
