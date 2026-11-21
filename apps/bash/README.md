@@ -78,13 +78,20 @@ sees 0x0 and readline assumes 80 columns. In a wider window, a command
 longer than 80 columns returns to the start of the line and is drawn over
 the prompt and its own beginning, though bash still receives all of it.
 
-To avoid that, `/etc/bash.bashrc` defines a `resize` function and runs it
-when the terminal has no size. It moves the cursor to the far corner, asks
-the host terminal where the cursor is (`ESC[6n`), and passes the answer to
-`stty rows R cols C`. The guest isn't told when the window changes, so run
-`resize` again after resizing it. If the terminal doesn't answer within a
-second, the size stays unset, and `stty rows 50 cols 160` sets it by hand.
-ssh sessions get their size from ssh, so `resize` doesn't run there.
+So when the console has no size, `/etc/bash.bashrc` turns off line editing
+(`set +o emacs`). The guest kernel then echoes input as it arrives, so long
+commands show as typed, but there is no history recall, tab completion or
+cursor movement. It also sets 24 rows and 160 columns for programs such as
+`ls`. In a local terminal, `stty rows 50 cols 200; set -o emacs` sets the
+real size and turns editing back on. The guest isn't told when the window
+changes, so set the size again after resizing it. ssh sessions get their
+size from ssh and keep line editing.
+
+This matters most on microVM Cloud, where the console is a log fetched with
+`vm console` and input comes from `vm send`. Asking the terminal for its
+size (`ESC[6n`) doesn't work there, because nothing on the serial line
+replies, and no fixed width is safe for readline: a 250-column fallback
+failed on a longer command.
 
 ## Memory
 
