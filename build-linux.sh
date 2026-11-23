@@ -38,7 +38,7 @@ else
 fi
 SYS_DIR="$SCRIPT_DIR/sys"
 JOBS="$(nproc)"
-KERNEL_VERSION="7.3.5" # 6.18.64 also tested as it is LTS
+KERNEL_VERSION="7.3.6" # 6.18.65 also tested as it is LTS
 KERNEL_TARBALL_URL="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz"
 KERNEL_TARBALL="$SCRIPT_DIR/linux-${KERNEL_VERSION}.tar.xz"
 
