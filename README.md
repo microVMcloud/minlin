@@ -52,7 +52,7 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
                                      #  dropbear / tailscale / lightpanda /
-                                     #  node / postgres)
+                                     #  node / postgres / xray)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost,
                                      #  PGFWD=5432 for psql -h localhost;
@@ -238,6 +238,22 @@ concurrent queries were enough. See
     ./build-disk.sh postgres
     MEM=48 PGFWD=5432 ./boot-qemu.sh
     PGPASSWORD=$(cat linux-src/postgres_password) psql -h localhost -U postgres
+
+
+### xray
+
+`apps/xray` runs [Xray-core](https://github.com/XTLS/Xray-core) as a VLESS +
+REALITY proxy server on port 80. The build downloads the official static
+release (cached in `linux-src/xray/`) and checks its SHA-256. It generates
+the client UUID and REALITY keys on the first build and keeps them in
+`linux-src/xray_reality.env`, then prints a `vless://` link for clients.
+Clients can't reach private addresses through it, including the host's
+loopback, which QEMU shows the guest as `10.0.2.2`. Memory use hasn't been
+measured; start at `MEM=64`. See [apps/xray/README.md](apps/xray/README.md)
+for the details:
+
+    ./build-disk.sh xray             # prints the vless:// link
+    MEM=64 HOSTFWD=8080 ./boot-qemu.sh
 
 
 ### Adding an app
