@@ -98,7 +98,8 @@ xray_sni="${XRAY_SNI:-www.microsoft.com}"
 # the proxy: under QEMU, 10.0.2.2 is the host's loopback, and on cloud VMs
 # 169.254.169.254 is usually the metadata service. IPOnDemand resolves domain
 # names first, so a name pointing at one of them is blocked too. The kernel
-# has no IPv6, hence UseIPv4.
+# has no IPv6, hence UseIPv4. It's set in sockopt, as Xray 26 deprecates
+# freedom's own domainStrategy setting and warns about it at startup.
 mkdir -p "$ROOTFS/etc/xray"
 (
     umask 077
@@ -117,7 +118,8 @@ mkdir -p "$ROOTFS/etc/xray"
     "sniffing": {"enabled": true, "destOverride": ["http", "tls"]}
   }],
   "outbounds": [
-    {"tag": "direct", "protocol": "freedom", "settings": {"domainStrategy": "UseIPv4"}},
+    {"tag": "direct", "protocol": "freedom",
+     "streamSettings": {"sockopt": {"domainStrategy": "UseIPv4"}}},
     {"tag": "block", "protocol": "blackhole"}
   ],
   "routing": {"domainStrategy": "IPOnDemand", "rules": [
