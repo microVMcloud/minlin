@@ -52,7 +52,7 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
                                      #  dropbear / tailscale / lightpanda /
-                                     #  node / postgres)
+                                     #  node / postgres / caddy)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost,
                                      #  PGFWD=5432 for psql -h localhost;
@@ -101,6 +101,21 @@ Each directory in `apps/` is something the VM can run. `build-disk.sh <app>` bui
 
 `apps/lighttpd` serves `rootfs/var/www` on port 80 with its access log on the
 console.
+
+
+### caddy
+
+`apps/caddy` serves `rootfs/var/www` on port 80 with the host's
+[Caddy](https://caddyserver.com) (tested with Ubuntu's `caddy` 2.6.2, a
+~39MB Go binary needing only libc), configured by
+`rootfs/etc/caddy/Caddyfile`. Automatic HTTPS and the admin API are off, and
+the access log goes to the console. Its state (the autosaved config) is kept
+in `/var/lib/caddy`. The disk holds 55MB. The default `MEM=32` is its
+floor: 1000 requests for the index page, sent 10 or 50 at a time with
+`curl` from the host.
+
+    ./build-disk.sh caddy
+    HOSTFWD=8080 ./boot-qemu.sh
 
 
 ### python
