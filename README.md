@@ -105,17 +105,20 @@ console.
 
 ### caddy
 
-`apps/caddy` serves `rootfs/var/www` on port 80 with the host's
-[Caddy](https://caddyserver.com) (tested with Ubuntu's `caddy` 2.6.2, a
-~39MB Go binary needing only libc), configured by
-`rootfs/etc/caddy/Caddyfile`. Automatic HTTPS and the admin API are off, and
-the access log goes to the console. Its state (the autosaved config) is kept
-in `/var/lib/caddy`. The disk holds 55MB. The default `MEM=32` is its
-floor: 1000 requests for the index page, sent 10 or 50 at a time with
-`curl` from the host.
+`apps/caddy` serves `rootfs/var/www` on port 80 with
+[Caddy](https://caddyserver.com), configured by `rootfs/etc/caddy/Caddyfile`.
+Automatic HTTPS and the admin API are off, and the access log goes to the
+console. Its state (the autosaved config) is kept in `/var/lib/caddy`. The
+build downloads the latest official static `linux_amd64` release from
+GitHub and checks it against the release's SHA-512 checksums. It keeps each
+version in `linux-src/caddy/<version>/`, so a rebuild doesn't download it
+again. Set `CADDY_VERSION=2.11.9` to pin a version; one already kept there
+builds offline.
+
+Tested with 2.11.9, a 51MB binary; the disk holds 66MB. Give it `MEM=64`.
 
     ./build-disk.sh caddy
-    HOSTFWD=8080 ./boot-qemu.sh
+    MEM=64 HOSTFWD=8080 ./boot-qemu.sh
 
 
 ### python
