@@ -1,0 +1,20 @@
+# Minimal Caddy config for minlin: plain HTTP on port 80, logging to stderr
+# (the serial console). Runs as root: the disk has no other users.
+{
+	# Serving a bare port leaves nothing to get a certificate for, but say so
+	# rather than have caddy try to install a local CA.
+	auto_https off
+	# The admin API listens on localhost:2019 by default. Nothing in the
+	# guest uses it, and it's one less listener and goroutine set.
+	admin off
+}
+
+:80 {
+	root * /var/www
+	file_server
+	encode gzip
+	log {
+		output stderr
+		format console
+	}
+}

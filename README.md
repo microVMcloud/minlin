@@ -52,7 +52,7 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
                                      #  dropbear / tailscale / lightpanda /
-                                     #  node / postgres)
+                                     #  node / postgres / caddy)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost,
                                      #  PGFWD=5432 for psql -h localhost;
@@ -101,6 +101,24 @@ Each directory in `apps/` is something the VM can run. `build-disk.sh <app>` bui
 
 `apps/lighttpd` serves `rootfs/var/www` on port 80 with its access log on the
 console.
+
+
+### caddy
+
+`apps/caddy` serves `rootfs/var/www` on port 80 with
+[Caddy](https://caddyserver.com), configured by `rootfs/etc/caddy/Caddyfile`.
+Automatic HTTPS and the admin API are off, and the access log goes to the
+console. Its state (the autosaved config) is kept in `/var/lib/caddy`. The
+build downloads the latest official static `linux_amd64` release from
+GitHub and checks it against the release's SHA-512 checksums. It keeps each
+version in `linux-src/caddy/<version>/`, so a rebuild doesn't download it
+again. Set `CADDY_VERSION=2.11.9` to pin a version; one already kept there
+builds offline.
+
+Tested with 2.11.9, a 51MB binary; the disk holds 66MB. Give it `MEM=64`.
+
+    ./build-disk.sh caddy
+    MEM=64 HOSTFWD=8080 ./boot-qemu.sh
 
 
 ### python
