@@ -55,8 +55,7 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
                                      #  node / postgres / caddy)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost,
-                                     #  PGFWD=5432 for psql -h localhost,
-                                     #  HTTPSFWD=8443 for the guest's 443;
+                                     #  PGFWD=5432 for psql -h localhost;
                                      #  these listen on 127.0.0.1, BIND_ADDR=0.0.0.0
                                      #  opens them to the network)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
@@ -109,26 +108,14 @@ console.
 `apps/caddy` serves `rootfs/var/www` on port 80 with the host's
 [Caddy](https://caddyserver.com) (tested with Ubuntu's `caddy` 2.6.2, a
 ~39MB Go binary needing only libc), configured by
-`rootfs/etc/caddy/Caddyfile`. The admin API is off, and the access log goes
-to the console. The disk holds 55MB. The default `MEM=32` is its floor for
-plain HTTP: 1000 requests for the index page, sent 10 or 50 at a time with
+`rootfs/etc/caddy/Caddyfile`. Automatic HTTPS and the admin API are off, and
+the access log goes to the console. Its state (the autosaved config) is kept
+in `/var/lib/caddy`. The disk holds 55MB. The default `MEM=32` is its
+floor: 1000 requests for the index page, sent 10 or 50 at a time with
 `curl` from the host.
 
     ./build-disk.sh caddy
     HOSTFWD=8080 ./boot-qemu.sh
-
-Build with `CADDY_DOMAIN=example.com` to serve that domain over HTTPS, with
-a certificate Caddy gets from Let's Encrypt and renews itself. The domain
-must point at the VM, with ports 80 and 443 reachable from the internet.
-`HTTPSFWD` forwards a host port to the guest's 443. Certificates are copied
-out of the old disk on each build and kept in `linux-src/caddy_data`, so
-rebuilding doesn't request new ones. HTTPS needs `MEM=64`: at 32MB the TLS
-handshakes run it out of memory. `CADDY_DOMAIN=localhost` uses Caddy's own
-CA instead, for testing. See [apps/caddy/README.md](apps/caddy/README.md)
-for the details:
-
-    CADDY_DOMAIN=localhost ./build-disk.sh caddy
-    MEM=64 HOSTFWD=8080 HTTPSFWD=8443 ./boot-qemu.sh   # curl -k https://localhost:8443/
 
 
 ### python
