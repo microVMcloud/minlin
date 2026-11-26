@@ -1,12 +1,18 @@
 # Minimal Caddy config for minlin: plain HTTP on port 80, logging to stderr
 # (the serial console). Runs as root: the disk has no other users.
+#
+# Building with CADDY_DOMAIN= makes install.sh replace ":80" below with the
+# domain and remove "auto_https off", so Caddy gets a certificate for it and
+# serves HTTPS on 443, redirecting port 80 there.
 {
-	# Serving a bare port leaves nothing to get a certificate for, but say so
-	# rather than have caddy try to install a local CA.
+	# A bare port leaves nothing to get a certificate for.
 	auto_https off
 	# The admin API listens on localhost:2019 by default. Nothing in the
-	# guest uses it, and it's one less listener and goroutine set.
+	# guest uses it, and it's one less listener.
 	admin off
+	# For a local name such as localhost, Caddy makes its own CA and would
+	# try to add it to the guest's trust store, which nothing here reads.
+	skip_install_trust
 }
 
 :80 {

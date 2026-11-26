@@ -16,6 +16,9 @@
 #   SSHFWD=2222 ./boot-qemu.sh && ssh -p 2222 root@localhost
 # PGFWD does the same for the guest's port 5432 (the postgres app):
 #   PGFWD=5432 ./boot-qemu.sh && psql -h localhost -U postgres
+# HTTPSFWD does the same for the guest's port 443, TCP and UDP (HTTP/3), for
+# the caddy app built with CADDY_DOMAIN:
+#   HOSTFWD=8080 HTTPSFWD=8443 ./boot-qemu.sh && curl -k https://localhost:8443/
 #
 # Those ports and :1234 listen on 127.0.0.1 only. BIND_ADDR= names another host
 # address to listen on, e.g. BIND_ADDR=0.0.0.0 to open them to the network.
@@ -56,6 +59,7 @@ SYS_DIR="$SCRIPT_DIR/sys"
 HOSTFWD="${HOSTFWD:-}"
 SSHFWD="${SSHFWD:-}"
 PGFWD="${PGFWD:-}"
+HTTPSFWD="${HTTPSFWD:-}"
 BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
 MEM="${MEM:-32}"
 GUEST_NAME="${GUEST_NAME:-}"
@@ -64,12 +68,14 @@ SWAP="${SWAP:-}"
 kvm_flag=()
 [ -w /dev/kvm ] && kvm_flag=(-enable-kvm -cpu host)
 
-if [ -n "$HOSTFWD$SSHFWD$PGFWD" ]; then
+if [ -n "$HOSTFWD$SSHFWD$PGFWD$HTTPSFWD" ]; then
     ip="10.0.2.15::10.0.2.2:255.255.255.0:$GUEST_NAME:eth0:off"
     netdev="user,id=testnet1"
     [ -n "$HOSTFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$HOSTFWD-:80"
     [ -n "$SSHFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$SSHFWD-:22"
     [ -n "$PGFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$PGFWD-:5432"
+    [ -n "$HTTPSFWD" ] &&
+        netdev+=",hostfwd=tcp:$BIND_ADDR:$HTTPSFWD-:443,hostfwd=udp:$BIND_ADDR:$HTTPSFWD-:443"
 else
     ip="192.168.1.2:::255.255.255.0:$GUEST_NAME:eth0:off"
     netdev="socket,id=testnet1,listen=$BIND_ADDR:1234"
