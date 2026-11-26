@@ -131,8 +131,10 @@ free RAM at boot.
   there's no TPM, and no iptables, so tailscaled falls back to nftables.
 - `router: disabling tunneled IPv6 due to system IPv6 config` and
   `magicsock: unable to bind udp6`: the kernel has no IPv6.
-- `dns: inotify: NewDirWatcher: function not implemented`: no inotify;
-  tailscaled doesn't need to watch `/etc/resolv.conf` here.
+- `dns: inotify: NewDirWatcher: function not implemented`: kernels built
+  before `INOTIFY_USER` was added (for Pi-hole) have no inotify; tailscaled
+  doesn't need to watch `/etc/resolv.conf` here. Untested with the current
+  kernel, where the message should be gone.
 - `health(warnable=ip-forwarding-off): ... IP forwarding is disabled` (exit
   node only): IPv4 forwarding is on; this is about IPv6 forwarding, checked
   because `::/0` is advertised. An exit node has to advertise both routes.

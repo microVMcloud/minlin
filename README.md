@@ -52,10 +52,12 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
                                      #  dropbear / tailscale / lightpanda /
-                                     #  node / postgres / caddy)
+                                     #  node / postgres / caddy /
+                                     #  oci, or ./build-oci.sh <image>)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost,
-                                     #  PGFWD=5432 for psql -h localhost;
+                                     #  PGFWD=5432 for psql -h localhost,
+                                     #  DNSFWD=5353 for dig -p 5353 @127.0.0.1;
                                      #  these listen on 127.0.0.1, BIND_ADDR=0.0.0.0
                                      #  opens them to the network)
     ./boot-firecracker.sh            # tap on br0; guest gets the next IP up
@@ -256,6 +258,28 @@ concurrent queries were enough. See
     ./build-disk.sh postgres
     MEM=48 PGFWD=5432 ./boot-qemu.sh
     PGPASSWORD=$(cat linux-src/postgres_password) psql -h localhost -U postgres
+
+
+### oci
+
+`apps/oci` runs a container image from a registry, with no Docker on the
+host. `./build-oci.sh <image>` downloads the image with `curl` and `jq`,
+unpacks its layers as the disk, and writes `init.conf` from the image's
+Entrypoint, Cmd, Env and WorkingDir. `OCI_ENV` adds variables, as
+`docker run -e` does. Tested with `caddy:latest` and `pihole/pihole`. Pi-hole
+needs `DNSMASQ_USER=root`, because the disk can't hold file capabilities.
+At `MEM=32` it was blocking ads 3.1 seconds after the boot started, and its
+web interface was up. See [apps/oci/README.md](apps/oci/README.md) for the
+details and the limits:
+
+    ./build-oci.sh caddy:latest
+    MEM=48 HOSTFWD=8080 ./boot-qemu.sh
+
+    OCI_ENV="DNSMASQ_USER=root" ./build-oci.sh pihole/pihole
+    HOSTFWD=8080 DNSFWD=5353 ./boot-qemu.sh
+    dig -p 5353 @127.0.0.1 doubleclick.net          # 0.0.0.0: blocked
+    # The admin password is printed on the console; the UI is at
+    # http://localhost:8080/admin/
 
 
 ### Adding an app

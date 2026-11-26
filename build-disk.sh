@@ -109,7 +109,12 @@ check_init_conf() {
         elif [ ! -x "$file" ]; then
             bad "$path: not executable"
         elif [ "$(head -c 2 "$file")" = '#!' ]; then
-            bad "$path: is a script and the kernel can't run those, name its interpreter"
+            # The kernel runs scripts (BINFMT_SCRIPT), if their interpreter
+            # is there.
+            interp="$(head -n 1 "$file" | sed 's/^#![[:space:]]*//' | awk '{print $1}')"
+            if [ ! -f "$(rootfs_path "$interp")" ]; then
+                bad "$path: its interpreter $interp is not on the disk"
+            fi
         elif [ "$(head -c 4 "$file")" != $'\x7fELF' ]; then
             bad "$path: not an ELF binary"
         else
