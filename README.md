@@ -109,8 +109,9 @@ console.
 
 `apps/caddy` serves `rootfs/var/www` on port 80 with
 [Caddy](https://caddyserver.com), configured by `rootfs/etc/caddy/Caddyfile`.
-Automatic HTTPS and the admin API are off, and the access log goes to the
-console. Its state (the autosaved config) is kept in `/var/lib/caddy`. The
+By default automatic HTTPS and the admin API are off, and the access log goes
+to the console. Its state (the autosaved config, and certificates when HTTPS
+is on) is kept in `/var/lib/caddy`. The
 build downloads the latest official static `linux_amd64` release from
 GitHub and checks it against the release's SHA-512 checksums. It keeps each
 version in `linux-src/caddy/<version>/`, so a rebuild doesn't download it
@@ -121,6 +122,34 @@ Tested with 2.11.9, a 51MB binary; the disk holds 66MB. Give it `MEM=64`.
 
     ./build-disk.sh caddy
     MEM=64 HOSTFWD=8080 ./boot-qemu.sh
+
+Set `CADDY_DOMAIN` to serve a domain over HTTPS instead. The build then writes
+a Caddyfile for that name with automatic HTTPS on, and adds
+`/etc/resolv.conf` and the host's CA bundle so Caddy can reach Let's Encrypt.
+At boot Caddy gets a certificate with the HTTP-01 or TLS-ALPN-01 challenge,
+serves the site on 443 and redirects port 80 to it. So the domain's DNS must
+point at the VM, and public port 443 (for TLS-ALPN-01) or 80 (for HTTP-01)
+must reach the guest's own port unchanged. A proxy that terminates TLS in
+front of the VM breaks the TLS-ALPN-01 challenge. `CADDY_EMAIL` sets the ACME
+account email. `CADDY_ACME_CA=staging` uses Let's Encrypt's staging CA, whose
+certificates browsers don't trust but whose rate limits are looser.
+
+The certificate is kept in `/var/lib/caddy` on the disk, so it survives
+reboots, but each `build-disk.sh` starts without one. Let's Encrypt issues at
+most 5 identical certificates a week and allows 5 failed validations per
+hostname an hour. Caddy retries failures with growing delays (10 minutes
+apart after half an hour in the test below).
+
+    CADDY_DOMAIN=www.example.com CADDY_EMAIL=you@example.com ./build-disk.sh caddy
+
+Tested on microVM Cloud with `MEM=64`, a TLS passthrough forward to guest port
+443 and a custom domain CNAMEd to the VM's hostname. Once the platform marked
+the domain active, Caddy passed TLS-ALPN-01 and got a trusted certificate, and
+the site answered HTTP/2. While the domain was still pending, the platform
+answered TLS for it with its own certificate, and every challenge failed.
+Under QEMU, `boot-qemu.sh` forwards only port 80, so a certificate can't be
+obtained there. A local boot did confirm that DNS, the CA bundle and ACME
+account registration work on the minimal kernel.
 
 
 ### python
