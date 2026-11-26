@@ -219,6 +219,22 @@ configure_kernel() {
         --enable SYSVIPC \
         --enable SIGNALFD
 
+    # Pi-hole (pihole/pihole through apps/oci) runs dnsmasq inside FTL, which
+    # always reads a hostsdir. dnsmasq watches that with inotify, and exits
+    # with "failed to create inotify" when it can't, so no DNS is served.
+    log "Enabling inotify for Pi-hole's dnsmasq"
+    "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
+        --enable INOTIFY_USER
+
+    # Container images (apps/oci) run their own scripts by exec: Pi-hole's
+    # cron jobs, its web UI's actions and updatecheck.sh (through setpriv)
+    # all exec the bash script /usr/local/bin/pihole, and fail with "Exec
+    # format error" without it. The scripts are inside the image, so the app
+    # can't name their interpreter as other apps do.
+    log "Enabling #! scripts for container images"
+    "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
+        --enable BINFMT_SCRIPT
+
     log "Embedding init as an uncompressed built-in initramfs"
     "$KERNEL_DIR/scripts/config" --file "$KERNEL_DIR/.config" \
         --enable BLK_DEV_INITRD \

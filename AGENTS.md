@@ -14,6 +14,7 @@ to work in the repo and how to add new apps.
 | `init.c` | PID 1: sets up networking, mounts the disk, runs `/etc/init.conf` |
 | `build-linux.sh` | builds the minimal kernel, with init inside it. With `full`, builds a defconfig kernel with the same init, for comparison and debugging |
 | `build-disk.sh <app>` | builds the disk image for `apps/<app>/` |
+| `build-oci.sh <image>` | builds the disk image from a container image, through `apps/oci` |
 | `boot-qemu.sh`, `boot-firecracker.sh` | boot `sys/` under each VMM |
 | `apps/<app>/` | one directory per app |
 | `sys/` | build output: `bzImage`, `vmlinux`, `diskimage` (ignored by git) |
@@ -36,7 +37,7 @@ Boot settings are environment variables:
 | `MEM` | both | guest RAM in MB, default 32 |
 | `GUEST_NAME` | both | hostname |
 | `SWAP` | both | a `mkswap` file to attach as `/dev/vdb` |
-| `HOSTFWD`, `SSHFWD`, `PGFWD` | QEMU | host ports to forward to guest ports 80, 22 and 5432. Any of them also gives the guest outbound internet through user-mode networking |
+| `HOSTFWD`, `SSHFWD`, `PGFWD`, `DNSFWD` | QEMU | host ports to forward to guest ports 80, 22, 5432 and 53 (`DNSFWD` forwards TCP and UDP). Any of them also gives the guest outbound internet through user-mode networking |
 | `BIND_ADDR` | QEMU | host address those ports and `:1234` listen on, default `127.0.0.1`. `0.0.0.0` opens them to the network |
 | `BRIDGE`, `TAP`, `GUEST_IP`, `HUGEPAGES` | Firecracker | see the comments in `boot-firecracker.sh` |
 
@@ -54,7 +55,7 @@ the serial console or over the network.
 - `build-linux.sh full` replaces the minimal kernel in `sys/`. Run
   `build-linux.sh` afterwards to restore it.
 - `build-linux.sh` deletes the kernel tree and rebuilds from scratch every time.
-- QEMU listens on port 1234 without `HOSTFWD`/`SSHFWD`/`PGFWD`, and all VMs share one
+- QEMU listens on port 1234 without `HOSTFWD`/`SSHFWD`/`PGFWD`/`DNSFWD`, and all VMs share one
   `sys/diskimage`, so only one VM runs at a time from an unmodified script.
 - Don't add a QEMU monitor on a TCP port. User-mode networking shows the guest
   the host's loopback as `10.0.2.2`, so the guest could drive the monitor. The
@@ -168,9 +169,10 @@ When no processes are left, init syncs the disk and reboots, which ends the VM.
 A `respawn` entry therefore keeps the VM up until it is killed or receives a
 shutdown signal.
 
-- **Scripts can't be executed directly.** The kernel has no `BINFMT_SCRIPT`, so
-  `#!` fails with `Exec format error`. Name the interpreter:
-  `once /usr/bin/bash /app/start.sh`.
+- **Scripts need their interpreter on the disk.** The kernel runs `#!`
+  scripts (`BINFMT_SCRIPT`), and `build-disk.sh` checks that the interpreter
+  is there. Existing apps name it anyway (`once /usr/bin/bash /app/start.sh`),
+  which also works on kernels built before that option was added.
 - **The path must be absolute.** init uses `execv` and does not search `PATH`.
 - **There is no shell and no quoting.** Arguments split on whitespace, with no
   variable expansion or redirection.
@@ -277,9 +279,7 @@ the built kernel's `.config`:
 
 | Missing | Symptom | Option |
 |---------|---------|--------|
-| `#!` scripts | `Exec format error` | `BINFMT_SCRIPT` |
 | `timerfd_*` | `ENOSYS` | `TIMERFD` |
-| `inotify_*` | `ENOSYS` | `INOTIFY_USER` |
 | `memfd_create`, real tmpfs, `/dev/shm` | `ENOSYS`, or no such file | `SHMEM`, `TMPFS` |
 | `io_uring` | `ENOSYS` | `IO_URING` |
 | Linux AIO (`io_setup`) | `ENOSYS` | `AIO` |
@@ -297,14 +297,15 @@ the built kernel's `.config`:
 Many programs handle a missing feature themselves, as node does here, so test
 before adding anything. Available and already used by the apps: `FUTEX`,
 `EPOLL`, `EVENTFD`, `UNIX`, `TUN`, `MULTIUSER`, `POSIX_TIMERS`, `FILE_LOCKING`,
-`SECCOMP_FILTER`, `ADVISE_SYSCALLS`, `SYSVIPC`, `SIGNALFD`, ptys, and nftables NAT. Overcommit is
+`SECCOMP_FILTER`, `ADVISE_SYSCALLS`, `SYSVIPC`, `SIGNALFD`, `INOTIFY_USER`,
+`BINFMT_SCRIPT`, ptys, and nftables NAT. Overcommit is
 patched to "always" so Go programs can start.
 
 ### Adding a kernel option
 
 The kernel is shared by every app, so each option costs all of them memory.
-Prefer changing the app, for example with a flag that avoids the feature or by
-naming an interpreter instead of enabling `BINFMT_SCRIPT`.
+Prefer changing the app, for example with a flag that avoids the feature, as
+`apps/oci` does by pointing `/dev/shm` at the disk instead of enabling `TMPFS`.
 
 If the option is needed:
 
@@ -330,14 +331,14 @@ also need a kernel rebuild, because init is built into the kernel.
 
 | Symptom on the console | Likely cause |
 |------------------------|--------------|
-| `init: exec X: Exec format error` | `X` is a script: name its interpreter |
+| `init: exec X: Exec format error` | `X` isn't an x86-64 binary, or it's a script and the kernel predates `BINFMT_SCRIPT` |
 | `init: exec X: No such file or directory` | wrong or relative path, or its dynamic loader is missing |
 | `mount /dev/vda: Invalid argument` | `sys/diskimage` isn't a valid ext4 image. `build-disk.sh` only installs an image when `mkfs.ext4` succeeds, so suspect something else changed the file |
 | `error while loading shared libraries` | a library `ldd` didn't report |
 | The same `started`/`exited` lines repeating every second | a `respawn` program is crash-looping. Read the first error above the loop |
 | `Function not implemented`, `ENOSYS`, `Address family not supported` | see [Kernel limits](#kernel-limits) |
 | Very slow start, timeouts, no response, `page allocation failure` | too little RAM. Raise `MEM` |
-| Name resolution or TLS failures | missing `/etc/resolv.conf` or certificates, or no `HOSTFWD`/`SSHFWD`/`PGFWD` under QEMU |
+| Name resolution or TLS failures | missing `/etc/resolv.conf` or certificates, or no `HOSTFWD`/`SSHFWD`/`PGFWD`/`DNSFWD` under QEMU |
 | VM exits immediately | every program has exited. Read their exit statuses |
 
 To find the files a program needs, trace it on the host:
