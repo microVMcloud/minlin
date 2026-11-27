@@ -152,6 +152,25 @@ Under QEMU, `boot-qemu.sh` forwards only port 80, so a certificate can't be
 obtained there. A local boot did confirm that DNS, the CA bundle and ACME
 account registration work on the minimal kernel.
 
+Set `CADDY_SSH=1` to also run OpenSSH, set up as in [apps/sshd](apps/sshd/README.md),
+so you can log in as root and update the site. It needs `SSH_AUTHORIZED_KEYS`,
+and it adds bash, busybox, curl and the ssh client, and grows the disk to 256M.
+Caddy serves `/var/www` straight from the disk, so files copied there are live
+at once. After editing the Caddyfile, run `kill $(pidof caddy)`, and init
+restarts Caddy a second later. Changes stay on the disk across reboots, but
+the next `build-disk.sh` replaces them with `rootfs/var/www`, so keep your
+own copy of the site. Run `sync` before killing the VM, because otherwise the
+last writes can be lost. It can be combined with `CADDY_DOMAIN`, though the
+two haven't been tested together.
+
+    CADDY_SSH=1 SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh caddy
+    MEM=64 HOSTFWD=8080 SSHFWD=2222 ./boot-qemu.sh
+    scp -P 2222 -r site/. root@localhost:/var/www/
+
+Tested under QEMU with `MEM=64` and Caddy 2.11.9. An `scp` to
+`/var/www/index.html` was served on the next request. With one ssh session
+open, `free` reported 37MB available, and the disk had 113MB free.
+
 
 ### python
 

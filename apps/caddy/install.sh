@@ -16,10 +16,28 @@
 # uses Let's Encrypt's staging CA, which has looser rate limits but issues
 # certificates browsers don't trust. Certificates live in /var/lib/caddy, so
 # every rebuild of the disk requests a new one.
+#
+# Set CADDY_SSH=1 to also run OpenSSH, as apps/sshd does, so the site in
+# /var/www can be updated with scp or sftp.
+# SSH_AUTHORIZED_KEYS then names the public key file allowed to log in as root;
+# it is required, since an image nobody can log in to would be pointless. The
+# host key is shared with apps/sshd, in $WORKDIR/ssh_host_ed25519_key.
 
 require curl
 require sha512sum coreutils
 require tar
+
+case "${CADDY_SSH:-}" in
+    ""|0) caddy_ssh="" ;;
+    1) caddy_ssh=1 ;;
+    *) echo "CADDY_SSH must be unset, 0 or 1" >&2; exit 1 ;;
+esac
+# Checked before the download, so a missing key fails the build at once.
+if [ -n "$caddy_ssh" ] && [ -z "${SSH_AUTHORIZED_KEYS:-}" ]; then
+    echo "CADDY_SSH=1 needs SSH_AUTHORIZED_KEYS, a public key file to log in with, e.g." >&2
+    echo "  CADDY_SSH=1 SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh caddy" >&2
+    exit 1
+fi
 
 caddy_version="${CADDY_VERSION:-}"
 if [ -z "$caddy_version" ]; then
@@ -108,4 +126,26 @@ if [ -n "${CADDY_DOMAIN:-}" ]; then
         echo "	}"
         echo "}"
     } >"$ROOTFS/etc/caddy/Caddyfile"
+fi
+
+if [ -n "$caddy_ssh" ]; then
+    log "Adding OpenSSH for root logins with $SSH_AUTHORIZED_KEYS"
+    # apps/sshd's install.sh doesn't bring its rootfs/: the sshd user and
+    # nogroup it runs the pre-auth side as, root's login shell, the config and
+    # DNS for ssh and curl out of the VM.
+    for f in passwd group resolv.conf ssh/sshd_config; do
+        install -D -m 644 "$SCRIPT_DIR/apps/sshd/rootfs/etc/$f" "$ROOTFS/etc/$f"
+    done
+    # shellcheck source=../sshd/install.sh
+    source "$SCRIPT_DIR/apps/sshd/install.sh"
+    # respawn, not once as in apps/sshd: caddy's respawn keeps the VM up
+    # anyway, and a stopped sshd would otherwise lock everyone out.
+    {
+        echo
+        echo "# From CADDY_SSH=1. sshd stays in the foreground (-D) and logs to the console (-e)."
+        echo "respawn /usr/sbin/sshd -D -e"
+    } >>"$ROOTFS/etc/init.conf"
+    # caddy and the shell's commands fill all but 2MB of 128M, which leaves no
+    # room to upload a site.
+    DISK_SIZE=256M
 fi
