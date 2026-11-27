@@ -340,7 +340,7 @@ $oci_line
 EOF
 echo "init.conf: $oci_line"
 jq -r '.config.ExposedPorts // {} | keys[]' "$oci_config" | while read -r oci_p; do
-    case "$oci_p" in 80/tcp|22/tcp|5432/tcp) ;; *)
+    case "$oci_p" in 80/tcp|22/tcp|5432/tcp|53/tcp|53/udp|6379/tcp) ;; *)
         echo "Note: the image exposes $oci_p, which boot-qemu.sh doesn't forward" ;; esac
 done
 rm -rf "$oci_tmp"

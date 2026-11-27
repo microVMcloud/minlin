@@ -1,11 +1,10 @@
 # AGENTS.md
 
-minlin is a tiny x86-64 Linux kernel with a custom init (`init.c`) built into
-its initramfs. It boots under QEMU microvm or Firecracker and runs one "app":
-ordinary Linux programs copied from the host onto an ext4 disk image.
+minlin is a tiny x86-64 Linux kernel with a custom init (`init.c`) built into its initramfs. It boots under QEMU microvm or Firecracker and runs one "app": ordinary Linux programs copied from the host onto an ext4 disk image.
 
-`README.md` describes the project and each existing app. This file covers how
-to work in the repo and how to add new apps.
+`README.md` describes the project and each existing app. This file covers how to work in the repo and how to add new apps.
+
+32MiB of RAM is the minimum.
 
 ## Layout
 
@@ -37,15 +36,13 @@ Boot settings are environment variables:
 | `MEM` | both | guest RAM in MB, default 32 |
 | `GUEST_NAME` | both | hostname |
 | `SWAP` | both | a `mkswap` file to attach as `/dev/vdb` |
-| `HOSTFWD`, `SSHFWD`, `PGFWD`, `DNSFWD` | QEMU | host ports to forward to guest ports 80, 22, 5432 and 53 (`DNSFWD` forwards TCP and UDP). Any of them also gives the guest outbound internet through user-mode networking |
+| `HOSTFWD`, `SSHFWD`, `PGFWD`, `REDISFWD`, `DNSFWD` | QEMU | host ports to forward to guest ports 80, 22, 5432, 6379 and 53 (`DNSFWD` forwards TCP and UDP). Any of them also gives the guest outbound internet through user-mode networking |
 | `BIND_ADDR` | QEMU | host address those ports and `:1234` listen on, default `127.0.0.1`. `0.0.0.0` opens them to the network |
 | `BRIDGE`, `TAP`, `GUEST_IP`, `HUGEPAGES` | Firecracker | see the comments in `boot-firecracker.sh` |
 
-In QEMU, Ctrl-A x kills the VM. A killed VM skips init's final sync, so recent
-writes to the disk can be lost.
+In QEMU, Ctrl-A x kills the VM. A killed VM skips init's final sync, so recent writes to the disk can be lost.
 
-There is no test suite. To verify a change, boot it and observe the result on
-the serial console or over the network.
+There is no test suite. To verify a change, boot it and observe the result on the serial console or over the network.
 
 ## Before changing build output
 
@@ -55,7 +52,7 @@ the serial console or over the network.
 - `build-linux.sh full` replaces the minimal kernel in `sys/`. Run
   `build-linux.sh` afterwards to restore it.
 - `build-linux.sh` deletes the kernel tree and rebuilds from scratch every time.
-- QEMU listens on port 1234 without `HOSTFWD`/`SSHFWD`/`PGFWD`/`DNSFWD`, and all VMs share one
+- QEMU listens on port 1234 without `HOSTFWD`/`SSHFWD`/`PGFWD`/`REDISFWD`/`DNSFWD`, and all VMs share one
   `sys/diskimage`, so only one VM runs at a time from an unmodified script.
 - Don't add a QEMU monitor on a TCP port. User-mode networking shows the guest
   the host's loopback as `10.0.2.2`, so the guest could drive the monitor. The
@@ -267,7 +264,7 @@ Other things to expect:
 init configures `lo` and `eth0` before starting programs, so there's no need
 for `ip` or DHCP. The address comes from the boot script's `ip=` parameter.
 
-QEMU forwards only guest ports 80, 22 and 5432, so have the app listen on one of those
+QEMU forwards only guest ports 80, 22, 5432, 6379 and 53, so have the app listen on one of those
 (as root, it can) or add a `hostfwd` to `boot-qemu.sh`. Under Firecracker the
 guest has its own address on the bridge, and all its ports are reachable.
 
@@ -338,7 +335,7 @@ also need a kernel rebuild, because init is built into the kernel.
 | The same `started`/`exited` lines repeating every second | a `respawn` program is crash-looping. Read the first error above the loop |
 | `Function not implemented`, `ENOSYS`, `Address family not supported` | see [Kernel limits](#kernel-limits) |
 | Very slow start, timeouts, no response, `page allocation failure` | too little RAM. Raise `MEM` |
-| Name resolution or TLS failures | missing `/etc/resolv.conf` or certificates, or no `HOSTFWD`/`SSHFWD`/`PGFWD`/`DNSFWD` under QEMU |
+| Name resolution or TLS failures | missing `/etc/resolv.conf` or certificates, or no `HOSTFWD`/`SSHFWD`/`PGFWD`/`REDISFWD`/`DNSFWD` under QEMU |
 | VM exits immediately | every program has exited. Read their exit statuses |
 
 To find the files a program needs, trace it on the host:

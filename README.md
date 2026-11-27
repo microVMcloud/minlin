@@ -52,11 +52,12 @@ Measured under QEMU microvm (`boot-qemu.sh`, `MEM=64`), median of five boots: fr
     ./build-disk.sh lighttpd         # sys/diskimage for apps/lighttpd
                                      # (or: python / top / bash / sshd /
                                      #  dropbear / tailscale / lightpanda /
-                                     #  node / postgres / caddy /
+                                     #  node / postgres / redis / caddy /
                                      #  oci, or ./build-oci.sh <image>)
     HOSTFWD=8080 ./boot-qemu.sh      # then: curl http://localhost:8080/
                                      # (SSHFWD=2222 for ssh -p 2222 root@localhost,
                                      #  PGFWD=5432 for psql -h localhost,
+                                     #  REDISFWD=6379 for redis-cli -h localhost,
                                      #  DNSFWD=5353 for dig -p 5353 @127.0.0.1;
                                      #  these listen on 127.0.0.1, BIND_ADDR=0.0.0.0
                                      #  opens them to the network)
@@ -287,6 +288,27 @@ concurrent queries were enough. See
     ./build-disk.sh postgres
     MEM=48 PGFWD=5432 ./boot-qemu.sh
     PGPASSWORD=$(cat linux-src/postgres_password) psql -h localhost -U postgres
+
+
+### redis
+
+`apps/redis` runs [Redis](https://redis.io) on port 6379, saving to an
+append-only file on the disk that is fsynced every second. Redis publishes no
+binaries, so the build downloads the latest release's source, checks it
+against the SHA-256 in Redis's `redis-hashes` repository and compiles the
+core server (no TLS or modules) in about 25 seconds. It keeps each version's
+`redis-server` and a host `redis-cli` in `linux-src/redis/<version>/`, so a
+rebuild doesn't download or compile it again. Set `REDIS_VERSION=8.12.0` to
+pin a version. Clients log in with a password the build generates and keeps
+in `linux-src/redis_password` (or set `REDIS_PASSWORD=`). The data is capped
+at `REDIS_MAXMEMORY`, 8MB by default, and writes past it fail with an error.
+Tested with 8.12.0, whose stripped server is 5.7MB. At the default `MEM=32`
+a full 8MB database took writes and rewrote its AOF. See
+[apps/redis/README.md](apps/redis/README.md) for the details:
+
+    ./build-disk.sh redis
+    REDISFWD=6379 ./boot-qemu.sh
+    linux-src/redis/*/redis-cli -h localhost -a "$(cat linux-src/redis_password)"
 
 
 ### oci

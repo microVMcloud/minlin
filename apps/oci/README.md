@@ -43,7 +43,8 @@ fixed. The build prints the image manifest's digest.
 
 The build prints a note for each port the image exposes that `boot-qemu.sh`
 doesn't forward. `boot-qemu.sh` forwards guest ports 80 (`HOSTFWD`), 22
-(`SSHFWD`), 5432 (`PGFWD`) and 53 over TCP and UDP (`DNSFWD`). Under
+(`SSHFWD`), 5432 (`PGFWD`), 6379 (`REDISFWD`) and 53 over TCP and UDP
+(`DNSFWD`). Under
 Firecracker every port is reachable.
 
 ## Pi-hole

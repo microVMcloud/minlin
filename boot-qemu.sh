@@ -19,6 +19,8 @@
 # DNSFWD forwards that host port, TCP and UDP, to the guest's port 53 (a DNS
 # server such as the oci app running pihole/pihole):
 #   DNSFWD=5353 ./boot-qemu.sh && dig -p 5353 @127.0.0.1 example.com
+# REDISFWD does the same for the guest's port 6379 (the redis app):
+#   REDISFWD=6379 ./boot-qemu.sh && redis-cli -h localhost
 #
 # Those ports and :1234 listen on 127.0.0.1 only. BIND_ADDR= names another host
 # address to listen on, e.g. BIND_ADDR=0.0.0.0 to open them to the network.
@@ -60,6 +62,7 @@ HOSTFWD="${HOSTFWD:-}"
 SSHFWD="${SSHFWD:-}"
 PGFWD="${PGFWD:-}"
 DNSFWD="${DNSFWD:-}"
+REDISFWD="${REDISFWD:-}"
 BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
 MEM="${MEM:-32}"
 GUEST_NAME="${GUEST_NAME:-}"
@@ -68,13 +71,14 @@ SWAP="${SWAP:-}"
 kvm_flag=()
 [ -w /dev/kvm ] && kvm_flag=(-enable-kvm -cpu host)
 
-if [ -n "$HOSTFWD$SSHFWD$PGFWD$DNSFWD" ]; then
+if [ -n "$HOSTFWD$SSHFWD$PGFWD$DNSFWD$REDISFWD" ]; then
     ip="10.0.2.15::10.0.2.2:255.255.255.0:$GUEST_NAME:eth0:off"
     netdev="user,id=testnet1"
     [ -n "$HOSTFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$HOSTFWD-:80"
     [ -n "$SSHFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$SSHFWD-:22"
     [ -n "$PGFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$PGFWD-:5432"
     [ -n "$DNSFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$DNSFWD-:53,hostfwd=udp:$BIND_ADDR:$DNSFWD-:53"
+    [ -n "$REDISFWD" ] && netdev+=",hostfwd=tcp:$BIND_ADDR:$REDISFWD-:6379"
 else
     ip="192.168.1.2:::255.255.255.0:$GUEST_NAME:eth0:off"
     netdev="socket,id=testnet1,listen=$BIND_ADDR:1234"
