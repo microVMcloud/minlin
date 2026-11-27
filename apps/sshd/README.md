@@ -2,8 +2,8 @@
 
 This app runs the host's OpenSSH server as the only program in a minlin
 microVM. Root logs in with a key to `bash`, with the everyday commands from
-`apps/bash` (busybox: `ls`, `cat`, `grep`, `sed`, `ps`, `free`, `df`, ..., and
-curl) and the ssh client. Interactive sessions get a real pty with job control, and `scp` and
+`apps/bash` (busybox: `ls`, `cat`, `grep`, `sed`, `ps`, `free`, `df`, `vi`, ..., plus
+curl and nano) and the ssh client. Interactive sessions get a real pty with job control, and `scp` and
 `sftp` work.
 
 ## Requirements

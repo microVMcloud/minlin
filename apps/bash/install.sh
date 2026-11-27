@@ -1,15 +1,19 @@
 # Sourced by build-disk.sh: installs the host's bash, setsid (util-linux) to
 # give it the console as its controlling terminal, the terminfo entry for that
-# console, busybox for the everyday commands to use from it, and curl.
+# console, busybox for the everyday commands to use from it, curl, and nano.
 
 require bash
 require setsid util-linux
 require busybox busybox-static
 require curl
+require nano
 
 install_binary "$(command -v bash)"
 install_binary "$(command -v setsid)"
 install_binary "$(command -v curl)"
+# An editor that's easier than busybox vi. Without /etc/nanorc it runs with
+# its defaults and no syntax colouring, which keeps /usr/share/nano off the disk.
+install_binary "$(command -v nano)"
 # curl fails every https:// URL without the CA roots.
 ca_bundle=/etc/ssl/certs/ca-certificates.crt
 [ -f "$ca_bundle" ] || { echo "No $ca_bundle (ca-certificates)" >&2; exit 1; }

@@ -95,10 +95,10 @@ failed on a longer command.
 
 ## Memory
 
-The disk holds 26MB: bash and its libraries, setsid, busybox, and curl, whose
-libraries are about 20MB of that. The default 32MB of RAM is plenty: with bash
-at its prompt, `free` reports about 19MB available, and an `https://` fetch
-works.
+The disk holds 27MB (`du -sh linux-src/rootfs`): bash and its libraries, setsid,
+busybox, nano, and curl, whose libraries are about 20MB of that. The default
+32MB of RAM is plenty: with bash at its prompt, `free` reports about 19MB
+available, and an `https://` fetch works.
 
 ## What's on the disk
 
@@ -107,6 +107,7 @@ works.
 | `/usr/bin/bash` | the host's bash |
 | `/usr/bin/setsid` | gives bash the console as its controlling terminal |
 | `/usr/bin/curl` | the host's curl |
+| `/usr/bin/nano` | the host's nano, an editor besides busybox's `vi` |
 | `/usr/bin/busybox` | the everyday commands |
 | `/usr/bin/*` | links to busybox, one per applet |
 | `/etc/init.conf` | starts bash on the console |

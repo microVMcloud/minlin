@@ -211,7 +211,7 @@ the `linux` terminfo entry it draws with (the kernel starts init with
 `apps/bash` runs an interactive `bash` on the serial console, with a
 `user@host:dir` prompt (set in `/etc/bash.bashrc`) and the host's static
 busybox for the everyday commands (`ls`, `cat`, `grep`, `sed`, `awk`, `ps`,
-`free`, `df`, `vi`, ...), one link per applet, plus the host's `curl`. init
+`free`, `df`, `vi`, ...), one link per applet, plus the host's `curl` and `nano`. init
 starts programs with no controlling terminal, so it goes through util-linux
 `setsid -c` to make the console bash's controlling tty; that gives job control
 and a working Ctrl-C.
