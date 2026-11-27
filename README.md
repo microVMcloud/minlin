@@ -153,8 +153,10 @@ obtained there. A local boot did confirm that DNS, the CA bundle and ACME
 account registration work on the minimal kernel.
 
 Set `CADDY_SSH=1` to also run OpenSSH, set up as in [apps/sshd](apps/sshd/README.md),
-so you can log in as root and update the site. It needs `SSH_AUTHORIZED_KEYS`,
-and it adds bash, busybox, curl and the ssh client, and grows the disk to 256M.
+so you can log in as root and update the site. It adds bash, busybox, curl and
+the ssh client, and grows the disk to 256M. `SSH_AUTHORIZED_KEYS` names the
+public key file to log in with. Leave it unset when the platform adds the key at
+deploy time, as microVM Cloud does: `/root/.ssh/authorized_keys` is then empty.
 Caddy serves `/var/www` straight from the disk, so files copied there are live
 at once. After editing the Caddyfile, run `kill $(pidof caddy)`, and init
 restarts Caddy a second later. Changes stay on the disk across reboots, but

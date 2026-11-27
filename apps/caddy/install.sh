@@ -19,9 +19,10 @@
 #
 # Set CADDY_SSH=1 to also run OpenSSH, as apps/sshd does, so the site in
 # /var/www can be updated with scp or sftp.
-# SSH_AUTHORIZED_KEYS then names the public key file allowed to log in as root;
-# it is required, since an image nobody can log in to would be pointless. The
-# host key is shared with apps/sshd, in $WORKDIR/ssh_host_ed25519_key.
+# SSH_AUTHORIZED_KEYS then names the public key file allowed to log in as root.
+# Without it /root/.ssh/authorized_keys is left empty, for a platform such as
+# microVM Cloud that adds the key when it deploys the VM. The host key is
+# shared with apps/sshd, in $WORKDIR/ssh_host_ed25519_key.
 
 require curl
 require sha512sum coreutils
@@ -32,12 +33,6 @@ case "${CADDY_SSH:-}" in
     1) caddy_ssh=1 ;;
     *) echo "CADDY_SSH must be unset, 0 or 1" >&2; exit 1 ;;
 esac
-# Checked before the download, so a missing key fails the build at once.
-if [ -n "$caddy_ssh" ] && [ -z "${SSH_AUTHORIZED_KEYS:-}" ]; then
-    echo "CADDY_SSH=1 needs SSH_AUTHORIZED_KEYS, a public key file to log in with, e.g." >&2
-    echo "  CADDY_SSH=1 SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh caddy" >&2
-    exit 1
-fi
 
 caddy_version="${CADDY_VERSION:-}"
 if [ -z "$caddy_version" ]; then
@@ -129,7 +124,16 @@ if [ -n "${CADDY_DOMAIN:-}" ]; then
 fi
 
 if [ -n "$caddy_ssh" ]; then
-    log "Adding OpenSSH for root logins with $SSH_AUTHORIZED_KEYS"
+    log "Adding OpenSSH for root logins"
+    # Warn here rather than leave it to apps/sshd, whose warning names its
+    # own build command.
+    if [ -z "${SSH_AUTHORIZED_KEYS:-}" ]; then
+        echo "WARNING: no SSH_AUTHORIZED_KEYS given, so /root/.ssh/authorized_keys is empty." >&2
+        echo "  Nobody can log in until a key is added, e.g. by the platform at deploy time." >&2
+        echo "  To build one in: CADDY_SSH=1 SSH_AUTHORIZED_KEYS=~/.ssh/id_ed25519.pub ./build-disk.sh caddy" >&2
+        SSH_AUTHORIZED_KEYS="$WORKDIR/blank.pub"
+        : >"$SSH_AUTHORIZED_KEYS"
+    fi
     # apps/sshd's install.sh doesn't bring its rootfs/: the sshd user and
     # nogroup it runs the pre-auth side as, root's login shell, the config and
     # DNS for ssh and curl out of the VM.
